@@ -1,5 +1,5 @@
 # MultiWiz
-This is a Wizard 101 login and account manager. Currently this application can allow for quickly logging in multiple wizard101 applications. After logging in, it allows quickly switching between active windows for more easy wizard management. Currently this application only runs on Windows. If Wizard101 updates you must relaunch using the official launcher before using multiwiz
+This is a Wizard 101 login and account manager. Currently this application can allow for quickly logging in multiple Wizard 101 applications. After logging in, it allows quickly switching between active windows for more easy wizard management. Currently this application only runs on Windows. If Wizard 101 updates you must relaunch using the official launcher before using multiwiz
 
 ## Download Instructions
 Select the latest release on the right side of the page.
