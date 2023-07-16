@@ -28,7 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
-            button1 = new Button();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             button2 = new Button();
             panel1 = new Panel();
             panel3 = new Panel();
@@ -41,30 +41,19 @@
             usernameColumn = new ColumnHeader();
             runningColumn = new ColumnHeader();
             panel2 = new Panel();
+            button4 = new Button();
             switcherButton = new Button();
             refreshButton = new Button();
-            button4 = new Button();
             panel1.SuspendLayout();
             panel3.SuspendLayout();
             panel4.SuspendLayout();
             panel2.SuspendLayout();
             SuspendLayout();
             // 
-            // button1
-            // 
-            button1.Dock = DockStyle.Left;
-            button1.Location = new Point(0, 0);
-            button1.Name = "button1";
-            button1.Size = new Size(139, 57);
-            button1.TabIndex = 0;
-            button1.Text = "Update Processes";
-            button1.UseVisualStyleBackColor = true;
-            button1.Click += button1_Click;
-            // 
             // button2
             // 
             button2.Dock = DockStyle.Left;
-            button2.Location = new Point(139, 0);
+            button2.Location = new Point(0, 0);
             button2.Name = "button2";
             button2.Size = new Size(136, 57);
             button2.TabIndex = 1;
@@ -168,17 +157,27 @@
             panel2.Controls.Add(switcherButton);
             panel2.Controls.Add(refreshButton);
             panel2.Controls.Add(button2);
-            panel2.Controls.Add(button1);
             panel2.Dock = DockStyle.Top;
             panel2.Location = new Point(0, 0);
             panel2.Name = "panel2";
             panel2.Size = new Size(800, 57);
             panel2.TabIndex = 0;
             // 
+            // button4
+            // 
+            button4.Dock = DockStyle.Left;
+            button4.Location = new Point(371, 0);
+            button4.Name = "button4";
+            button4.Size = new Size(100, 57);
+            button4.TabIndex = 4;
+            button4.Text = "Close All";
+            button4.UseVisualStyleBackColor = true;
+            button4.Click += button4_Click;
+            // 
             // switcherButton
             // 
             switcherButton.Dock = DockStyle.Left;
-            switcherButton.Location = new Point(397, 0);
+            switcherButton.Location = new Point(258, 0);
             switcherButton.Name = "switcherButton";
             switcherButton.Size = new Size(113, 57);
             switcherButton.TabIndex = 3;
@@ -189,7 +188,7 @@
             // refreshButton
             // 
             refreshButton.Dock = DockStyle.Left;
-            refreshButton.Location = new Point(275, 0);
+            refreshButton.Location = new Point(136, 0);
             refreshButton.Name = "refreshButton";
             refreshButton.Size = new Size(122, 57);
             refreshButton.TabIndex = 2;
@@ -197,25 +196,15 @@
             refreshButton.UseVisualStyleBackColor = true;
             refreshButton.Click += refreshButton_Click;
             // 
-            // button4
-            // 
-            button4.Dock = DockStyle.Left;
-            button4.Location = new Point(510, 0);
-            button4.Name = "button4";
-            button4.Size = new Size(100, 57);
-            button4.TabIndex = 4;
-            button4.Text = "Close All";
-            button4.UseVisualStyleBackColor = true;
-            button4.Click += button4_Click;
-            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(800, 450);
             Controls.Add(panel1);
+            Icon = (Icon)resources.GetObject("$this.Icon");
             Name = "Form1";
-            Text = "Form1";
+            Text = "Multiwiz";
             panel1.ResumeLayout(false);
             panel3.ResumeLayout(false);
             panel4.ResumeLayout(false);
@@ -224,8 +213,6 @@
         }
 
         #endregion
-
-        private Button button1;
         private Button button2;
         private Panel panel1;
         private Panel panel2;
