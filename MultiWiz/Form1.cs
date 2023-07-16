@@ -32,7 +32,7 @@ namespace MultiWiz
         {
             try
             {
-
+                File.Decrypt(path);
                 using (StreamReader sr = File.OpenText(path))
                 {
                     string line = "";
@@ -86,6 +86,7 @@ namespace MultiWiz
                     sw.WriteLine(a.username);
                     sw.WriteLine(a.password);
                 }
+                File.Encrypt(path);
             }
         }
 
