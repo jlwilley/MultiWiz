@@ -23,4 +23,4 @@ After your accounts are open you can click the switcher button to pull up a quic
 
 
 ## Other information
-If you run into any bugs please create a github issue with a detailed explanation of the bug and how you got it to occur. I do not believe this application is against Kingsisle terms of service however it is not an official Kingsisle Application. If Kingsisle requests that this application is taken down I will do so.
+If you run into any bugs please create a github issue with a detailed explanation of the bug and how you got it to occur. I do not believe this application is against Kingsisle terms of service however it is not an official Kingsisle Application. If Kingsisle requests that this application is taken down I will do so. Account information is currently stored in a plain text document in the MultiwWiz, as such do not use MultiWiz on a shared computer.
