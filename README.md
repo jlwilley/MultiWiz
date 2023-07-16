@@ -19,3 +19,7 @@ When that game screen has been open for 5 seconds the game will automatically be
 You can select multiple account from the list at once for opening or closing by control clicking the entries.
 
 After your accounts are open you can click the switcher button to pull up a quick switcher menu that sits at the right of your screen. Thie menu allows you to quickly swap between version of the game that you are controlling.
+
+
+## Other information
+If you run into any bugs please create a github issue with a detailed explanation of the bug and how you got it to occur.
