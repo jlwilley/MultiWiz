@@ -1,5 +1,5 @@
 # MultiWiz
-This is a Wizard 101 login and account manager. Currently this application can allow for quickly logging in multiple wizard101 applications quickly. After logining in it allows quickly switching between active windows for more easy wizard management. Currently only windows only may work on other version in the future.
+This is a Wizard 101 login and account manager. Currently this application can allow for quickly logging in multiple wizard101 applications. After logining in it allows quickly switching between active windows for more easy wizard management. Currently only windows only may work on other version in the future.
 
 ## Download Instructions
 Select the latest release on the right side of the page.
@@ -22,4 +22,4 @@ After your accounts are open you can click the switcher button to pull up a quic
 
 
 ## Other information
-If you run into any bugs please create a github issue with a detailed explanation of the bug and how you got it to occur.
+If you run into any bugs please create a github issue with a detailed explanation of the bug and how you got it to occur. I do not believe this application is against Kingsisle terms of service however it is not an official Kingsisle Application. If Kingsisle requets that this application is taken down I will do so.
