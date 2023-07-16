@@ -3,11 +3,12 @@ This is a Wizard 101 login and account manager. Currently this application can a
 
 ## Download Instructions
 Select the latest release on the right side of the page.
-![DownloadLocation](https://github.com/jlwilley/MultiWiz/assets/83674331/5a0aa65e-d716-427d-817d-284663d0b7b1)
+
 
 From there download MultiWiz.zip
 Extract to the multi wiz folder and run Multiwiz.exe.
 If you want a desktop shortcut just right click MultiWiz.exe and create shortcut.
+![DownloadLocation](https://github.com/jlwilley/MultiWiz/assets/83674331/a06b8b9d-110c-410f-988a-ce2ae170ee08)
 
 ## Usage Instructions
 Select Add account to enter the add account dialog box.
