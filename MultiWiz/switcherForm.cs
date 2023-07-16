@@ -15,21 +15,26 @@ namespace MultiWiz
 {
     public partial class switcherForm : Form
     {
-
+        //Imports required functionality for changing foreground window
         [DllImport("user32.dll")]
         static extern bool SetForegroundWindow(IntPtr hWnd);
 
+        //the form that created this one
         Form1 ParentForm;
 
-
+        //the switcher form object
         public switcherForm(Form1 parentForm)
         {
+            //ensures form is always on top
             this.TopMost = true;
+            //positions switcher at rightmost point on the screen
             Point p = new Point(Screen.PrimaryScreen.Bounds.Width - (this.Width * 3 / 4), (Screen.PrimaryScreen.Bounds.Height / 2) - this.Height);
             this.Location = p;
             this.Opacity = .5;
             InitializeComponent();
             this.ParentForm = parentForm;
+
+            //adds a button to the form for each account currently logged in
             foreach (account a in parentForm.getAccount())
             {
                 if (a.process != null)
@@ -49,6 +54,7 @@ namespace MultiWiz
             }
         }
 
+        //generic method for handling switcher buttons
         void OnGenericButtonClick(object sender, EventArgs e)
         {
             var btn = sender as Button;
@@ -65,12 +71,14 @@ namespace MultiWiz
 
         }
 
+        //ensures main form is shown when this one closes
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             ParentForm.Show();
             base.OnFormClosing(e);
         }
 
+        //close button
         private void button1_Click(object sender, EventArgs e)
         {
             ParentForm.Show();
@@ -82,6 +90,7 @@ namespace MultiWiz
 
         }
 
+        //controls for dragging the form around
         private bool mouseDown;
         private Point lastLocation;
         private void navBar_MouseDown(object sender, MouseEventArgs e)

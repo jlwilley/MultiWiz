@@ -10,6 +10,7 @@ using System.Windows.Forms;
 
 namespace MultiWiz
 {
+    //form for the add account dialog box
     public partial class AddAccount : Form
     {
         private Form1 parentForm;
@@ -24,6 +25,7 @@ namespace MultiWiz
             Close();
         }
 
+        //checks to make sure login is not blank does not ensure login is correct
         private void button1_Click(object sender, EventArgs e)
         {
             if (string.IsNullOrWhiteSpace(accountText.Text))
@@ -41,6 +43,7 @@ namespace MultiWiz
                 ErrorLabel.Text = "Invalid Password";
                 return;
             }
+            //passes login back to parent form 1
             parentForm.addAccount(new Form1.account(accountText.Text, usernameText.Text, passwordText.Text));
             Close();
         }

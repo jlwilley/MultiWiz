@@ -8,14 +8,17 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement.Header;
 
 namespace MultiWiz
 {
+    //main launch form
     public partial class Form1 : Form
     {
-
+        //import for setting foreground window
         [DllImport("user32.dll")]
         static extern bool SetForegroundWindow(IntPtr hWnd);
 
+        //list containing all accounts
         private ArrayList accountList;
-        string path = "..\\config.txt";
+        //path to config
+        string path = ".\\config.txt";
         public Form1()
         {
             InitializeComponent();
@@ -28,6 +31,7 @@ namespace MultiWiz
             return accountList;
         }
 
+        //loads information from config file
         private void loadInformation()
         {
             try
@@ -69,6 +73,7 @@ namespace MultiWiz
             }
         }
 
+        //adds account to the list
         public void addAccount(account a)
         {
             accountList.Add(a);
@@ -76,6 +81,7 @@ namespace MultiWiz
             saveInformation();
         }
 
+        //writes accounts to the config file line by line
         private void saveInformation()
         {
             using (StreamWriter sw = File.CreateText(path))
@@ -90,11 +96,13 @@ namespace MultiWiz
             }
         }
 
+        //refreshes accounts
         private void button1_Click(object sender, EventArgs e)
         {
             refresh();
         }
 
+        //add account dialog
         private void button2_Click(object sender, EventArgs e)
         {
             Form AddAccount = new AddAccount(this);
@@ -106,6 +114,7 @@ namespace MultiWiz
 
         }
 
+        //reloads accounts table
         private void refresh()
         {
             listView1.Items.Clear();
@@ -144,6 +153,7 @@ namespace MultiWiz
 
         }
 
+        //saves information before form closses
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             saveInformation();
@@ -155,6 +165,7 @@ namespace MultiWiz
             refresh();
         }
 
+        //opens the associated wizard account
         private void openButton_Click(object sender, EventArgs e)
         {
             foreach (ListViewItem item in listView1.SelectedItems)
@@ -182,6 +193,7 @@ namespace MultiWiz
             refresh();
         }
 
+        //class for holding account information
         public class account
         {
             public string name;
@@ -198,6 +210,7 @@ namespace MultiWiz
                 this.process = null;
             }
 
+            //starts wizard 101 for assocaited account
             public void startWizard()
             {
                 ProcessStartInfo info = new ProcessStartInfo();
@@ -207,13 +220,16 @@ namespace MultiWiz
                 info.Arguments = "-L login.us.wizard101.com 12000";
                 this.process.StartInfo = info;
                 this.process.Start();
+                //uses a new thread
                 Thread loginThread = new Thread(login);
                 loginThread.Start();
             }
 
             public void login()
             {
+                //waits 5 seconds to ensure game loads
                 Thread.Sleep(5000);
+                //locks to ensure logins are correctly entererd individually
                 lock (loginLock)
                 {
                     SetForegroundWindow(process.MainWindowHandle);
@@ -225,7 +241,7 @@ namespace MultiWiz
             }
 
 
-
+            //stops the process with the current account
             public void stopWizard()
             {
                 if (process != null)
@@ -237,6 +253,7 @@ namespace MultiWiz
 
         }
 
+        //removes the account
         private void deleteButton_Click(object sender, EventArgs e)
         {
             foreach (ListViewItem item in listView1.SelectedItems)
@@ -248,6 +265,7 @@ namespace MultiWiz
             saveInformation();
         }
 
+        //opens switcher form
         private void switcherButton_Click(object sender, EventArgs e)
         {
             switcherForm s = new switcherForm(this);
@@ -255,6 +273,7 @@ namespace MultiWiz
             this.Hide();
         }
 
+        //closses all accounts
         private void button4_Click(object sender, EventArgs e)
         {
             foreach (account a in accountList)
