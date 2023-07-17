@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -21,7 +22,7 @@ namespace MultiWiz
 
         //the form that created this one
         Form1 ParentForm;
-
+        ArrayList buttonList = new ArrayList();
         //the switcher form object
         public switcherForm(Form1 parentForm)
         {
@@ -33,6 +34,7 @@ namespace MultiWiz
             this.Opacity = .5;
             InitializeComponent();
             this.ParentForm = parentForm;
+            
 
             //adds a button to the form for each account currently logged in
             foreach (account a in parentForm.getAccount())
@@ -49,7 +51,8 @@ namespace MultiWiz
                     button.Font = buttonFont;
                     button.ForeColor = Color.White;
                     button.Click += OnGenericButtonClick;
-                    buttonPanel.Controls.Add(button);
+                    buttonList.Add(button);
+                    buttonPanel.Controls.Add(button);                
                 }
             }
         }
@@ -60,9 +63,14 @@ namespace MultiWiz
             var btn = sender as Button;
             if (btn != null)
             {
+                foreach (Button b in buttonList)
+                {
+                    b.BackColor = Color.Black;
+                }
+                btn.BackColor = Color.SlateGray;
                 account a = (account)btn.Tag;
                 SetForegroundWindow(a.process.MainWindowHandle);
-
+                
             }
         }
 
