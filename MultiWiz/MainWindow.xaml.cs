@@ -57,6 +57,29 @@ namespace MultiWiz
             }
         }
 
+        private async Task HandleUpdateAvailability()
+        {
+            bool updateAvailable = await IsUpdateAvailable();
+
+            if (updateAvailable)
+            {
+                MessageBoxResult result = MessageBox.Show(
+                    "An update is available. Do you want to update now?",
+                    "Update Available",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question
+                );
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    // Call a method to perform the update or open a browser to download the update.
+                    // You may need to implement a mechanism to update your application.
+                    // For simplicity, we'll just open a URL for downloading in this example.
+                    System.Diagnostics.Process.Start("https://github.com/jlwilley/MultiWiz/releases/latest");
+                }
+            }
+        }
+
         string path = ".\\config.txt";
 
         public ObservableCollection<account> Accounts;
@@ -76,6 +99,8 @@ namespace MultiWiz
             Accounts = new ObservableCollection<account>();
             loadInformation();
             AccountView.ItemsSource = Accounts;
+
+            Task.Run(() => HandleUpdateAvailability());
         }
 
         protected override void OnClosing( CancelEventArgs e)
