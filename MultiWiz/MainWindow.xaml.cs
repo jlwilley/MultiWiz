@@ -23,15 +23,39 @@ using System.Windows.Shapes;
 using static MultiWiz.MainWindow;
 using InputSimulatorEx;
 using System.Runtime.CompilerServices;
+using System.Net.Http;
+using Newtonsoft.Json.Linq;
+using System.Net.Http.Headers;
+using System.Xml.Linq;
+
+
 
 namespace MultiWiz
 {
+
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow : Window
     {
+        public async Task<bool> IsUpdateAvailable()
+        {
+            string currentVersion = "1.0.0"; // Your current app version
+            string repo = "jlwilley/MultiWiz"; // Your GitHub repo
+            String Token = "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";
 
+            using (var client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("AppName", "1.0"));
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+
+                var response = await client.GetStringAsync($"https://api.github.com/repos/{repo}/releases/latest");
+                JObject latestRelease = JObject.Parse(response);
+                string latestVersion = latestRelease["tag_name"].ToString(); // Assuming you use tags for versioning
+
+                return Version.Parse(latestVersion) > Version.Parse(currentVersion);
+            }
+        }
 
         string path = ".\\config.txt";
 
