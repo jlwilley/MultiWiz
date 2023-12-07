@@ -27,6 +27,7 @@ using System.Net.Http;
 using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
 using System.Xml.Linq;
+using Squirrel;
 
 
 
@@ -38,46 +39,24 @@ namespace MultiWiz
     /// </summary>
     public partial class MainWindow : Window
     {
-        public async Task<bool> IsUpdateAvailable()
+
+        UpdateManager manager;
+
+        public async void IsUpdateAvailable()
         {
-            string currentVersion = "1.0.0"; // Your current app version
-            string repo = "jlwilley/MultiWiz"; // Your GitHub repo
             String Token = "YOUR_GITHUB_TOKEN_HERE";
-
-            using (var client = new HttpClient())
-            {
-                client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("AppName", "1.0"));
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
-
-                var response = await client.GetStringAsync($"https://api.github.com/repos/{repo}/releases/latest");
-                JObject latestRelease = JObject.Parse(response);
-                string latestVersion = latestRelease["tag_name"].ToString(); // Assuming you use tags for versioning
-
-                return Version.Parse(latestVersion) > Version.Parse(currentVersion);
-            }
+            manager = await UpdateManager.GitHubUpdateManager("https://github.com/jlwilley/MultiWiz" , null, null, null, false, Token);
+            await HandleUpdateAvailability();
         }
 
         private async Task HandleUpdateAvailability()
         {
-            bool updateAvailable = await IsUpdateAvailable();
-
-            if (updateAvailable)
+            var updateInfo = await manager.CheckForUpdate();
+            if (updateInfo.ReleasesToApply.Any())
             {
-                MessageBoxResult result = MessageBox.Show(
-                    "An update is available. Do you want to update now?",
-                    "Update Available",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question
-                );
-
-                if (result == MessageBoxResult.Yes)
-                {
-                    // Call a method to perform the update or open a browser to download the update.
-                    // You may need to implement a mechanism to update your application.
-                    // For simplicity, we'll just open a URL for downloading in this example.
-                    System.Diagnostics.Process.Start("https://github.com/jlwilley/MultiWiz/releases/latest");
-                }
+                await manager.UpdateApp();
             }
+            MessageBox.Show("Updated succesfuly!");
         }
 
         string path = ".\\config.txt";
@@ -95,6 +74,7 @@ namespace MultiWiz
 
         public MainWindow()
         {
+            IsUpdateAvailable();
             InitializeComponent();
             Accounts = new ObservableCollection<account>();
             loadInformation();
@@ -216,7 +196,10 @@ namespace MultiWiz
                         SetForegroundWindow(Process.GetProcessById(Environment.ProcessId).MainWindowHandle);
                     }
                 }
-                Process.WaitForExit();
+                if(Process != null)
+                {
+                    Process.WaitForExit();
+                }
                 IsRunning = false;
                 Process = null;
             }
@@ -247,11 +230,17 @@ namespace MultiWiz
             {
                 using (StreamReader sr = File.OpenText(path))
                 {
-                    string line = "";
-                    while ((line = sr.ReadLine()) != null)
+                    try
                     {
-                        string[] info = line.Split(',');
-                        Accounts.Add(new account(info[0], info[1], info[2]));
+                        string line = "";
+                        while ((line = sr.ReadLine()) != null)
+                        {
+                            string[] info = line.Split(',');
+                            Accounts.Add(new account(info[0], info[1], info[2]));
+                        }
+                    } catch
+                    {
+                        Console.WriteLine("Config file is malformed");
                     }
                 }               
             }
