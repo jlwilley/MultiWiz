@@ -4,29 +4,31 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net6.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
-    <UseWindowsForms>true</UseWindowsForms>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <StartupObject>MultiWiz.Program</StartupObject>
-    <ApplicationIcon>Resources\magic-wand.ico</ApplicationIcon>
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="Resources\magic-wand.ico" />
+    <None Remove="gear.png" />
+    <None Remove="gear.svg" />
+    <None Remove="magic-wand.ico" />
+    <None Remove="play-button-arrowhead.png" />
+    <None Remove="plus.png" />
+    <None Remove="trash-can.png" />
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="Properties\Resources.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Resources.resx</DependentUpon>
-    </Compile>
+    <PackageReference Include="InputSimulatorEx" Version="2.1.1" />
+    <PackageReference Include="MaterialDesignThemes" Version="4.9.0" />
+    <PackageReference Include="ShowMeTheXAML.MSBuild" Version="2.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Update="Properties\Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
+    <Resource Include="gear.png" />
+    <Resource Include="gear.svg" />
+    <Resource Include="magic-wand.ico" />
+    <Resource Include="play-button-arrowhead.png" />
+    <Resource Include="plus.png" />
+    <Resource Include="trash-can.png" />
   </ItemGroup>
 
 </Project>
