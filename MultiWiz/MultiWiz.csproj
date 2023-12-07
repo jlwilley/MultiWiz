@@ -5,6 +5,7 @@
     <TargetFramework>net6.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>magic-wand.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,8 +18,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="magic-wand.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="InputSimulatorEx" Version="2.1.1" />
     <PackageReference Include="MaterialDesignThemes" Version="4.9.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="ShowMeTheXAML.MSBuild" Version="2.0.0" />
   </ItemGroup>
 
