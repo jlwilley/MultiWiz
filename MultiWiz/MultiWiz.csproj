@@ -31,7 +31,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="ShowMeTheXAML.MSBuild" Version="2.0.0" />
-    <PackageReference Include="squirrel.windows" Version="2.0.1" />
+    <PackageReference Include="squirrel.windows" Version="1.9.0" />
   </ItemGroup>
 
   <ItemGroup>
