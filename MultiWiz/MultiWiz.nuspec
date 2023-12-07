@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package >
+  <metadata>
+    <id>MultiWiz</id>
+    <version>1.0.0</version>
+    <title>MultiWiz</title>
+    <authors>jlwilley</authors>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <license type="expression">MIT</license>
+    <projectUrl>https://github.com/jlwilley/MultiWiz.git</projectUrl>
+    <description>A Application for handling multiple Wizard101</description>
+    <releaseNotes>Summary of changes made in this release of the package.</releaseNotes>
+    <copyright>jlwilley</copyright>
+    <tags>Wizard101</tags>
+  </metadata>
+
+  <files>
+    <file src="bin\Release\net6.0-windows10.0.18362.0\**" target="lib\net6.0-windows10.0.18362.0" />
+  </files>
+  
+  
+</package>

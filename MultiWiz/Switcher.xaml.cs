@@ -54,7 +54,7 @@ namespace MultiWiz
                 btn.Content = acc.Name;
                 btn.Tag = acc;
                 btn.Height = 100;
-                btn.Click += (s, e) => { HandleButton(s, e); };
+                    btn.Click += (s, e) => { HandleButton(s, e); };
                 DynamicButtonsArea.Items.Add(btn);
 
                 }
@@ -64,8 +64,23 @@ namespace MultiWiz
         private void HandleButton(object sender, RoutedEventArgs e)
         {
             Button btn = (Button)sender;
+            Mark(btn);
             account acc = (account)btn.Tag;
             acc.Focus();
+        }
+
+        private void Mark(Button b)
+        {
+            foreach( Button btn in DynamicButtonsArea.Items)
+            {
+                if (btn != b)
+                {
+                    btn.BorderBrush = Brushes.Transparent;
+                    btn.BorderThickness = new Thickness(0);
+                }
+            }
+            b.BorderBrush = Brushes.Red;
+            b.BorderThickness = new Thickness(3);
         }
     }
 }
