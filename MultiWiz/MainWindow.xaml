@@ -13,41 +13,8 @@
         FontFamily="{materialDesign:MaterialDesignFont}"
         mc:Ignorable="d"
         Title="MultiWiz" Height="450" Width="441" Icon="/magic-wand.ico">
-    <materialDesign:DialogHost x:Name="AddDialog">
-        <materialDesign:DialogHost.DialogContent>
-            <StackPanel Margin="16">
-                <TextBlock Text="Add a new account" />
-
-                <TextBox x:Name="AccountNameTextBox"
-                       Margin="0,8,0,0"
-                       HorizontalAlignment="Stretch" materialDesign:HintAssist.Hint="Account Name"/>
-
-                <TextBox x:Name="UsernameTextBox"
-                       Margin="0,8,0,0"
-                       HorizontalAlignment="Stretch" materialDesign:HintAssist.Hint="Username"/>
-
-                <TextBox x:Name="PasswordTextBox"
-                       Margin="0,8,0,0"
-                       HorizontalAlignment="Stretch" materialDesign:HintAssist.Hint="Password"/>
-
-                <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                    <Button x:Name="DialogAddButton" Margin="0,8,8,0"
-                        Content="ADD"
-                        IsDefault="True"
-                        Style="{StaticResource MaterialDesignFlatButton}"
-                        Click="DialogAddButton_Click"/>
-
-
-                    <Button x:Name="DialogCancelButton" Margin="0,8,8,0"
-                        Content="CANCEL"
-                        IsCancel="True"
-                        Style="{StaticResource MaterialDesignFlatButton}" 
-                            Click="DialogCancelButton_Click"/>
-
-                </StackPanel>
-            </StackPanel>
-        </materialDesign:DialogHost.DialogContent>
-        <Grid x:Name="GridLayout">
+    
+    <Grid x:Name="GridLayout">
             <Grid.RowDefinitions>
                 <RowDefinition Height="369*"/>
                 <RowDefinition Height="65*"/>
@@ -94,7 +61,56 @@
                 <Button Content="{materialDesign:PackIcon plus}" x:Name="AddButton" HorizontalAlignment="Left" Margin="92,0,0,0" VerticalAlignment="Center" Style="{DynamicResource MaterialDesignRaisedLightButton}" Click="AddButton_Click" />
                 <Button x:Name="PlayButton" Content="{materialDesign:PackIcon play}" HorizontalAlignment="Left" Margin="18,0,0,0" VerticalAlignment="Center" Style="{DynamicResource MaterialDesignRaisedLightButton}" Click="PlayButton_Click"/>
             </Grid>
-        </Grid>
-    </materialDesign:DialogHost>
+        <materialDesign:DialogHost x:Name="UpdateDialogHost">
+            <materialDesign:DialogHost.DialogContent>
+                <StackPanel>
+                    <TextBlock Text="An update is available. Would you like to update now?" 
+                           Margin="16"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}" 
+                            CommandParameter="True" Content="YES" Style="{StaticResource MaterialDesignFlatButton}"/>
+                        <Button Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}" 
+                            CommandParameter="False" Content="NO" Style="{StaticResource MaterialDesignFlatButton}"/>
+                    </StackPanel>
+                </StackPanel>
+            </materialDesign:DialogHost.DialogContent>
+        </materialDesign:DialogHost>
+        <materialDesign:DialogHost x:Name="AddDialog">
+            <materialDesign:DialogHost.DialogContent>
+                <StackPanel Margin="16">
+                    <TextBlock Text="Add a new account" />
+
+                    <TextBox x:Name="AccountNameTextBox"
+                       Margin="0,8,0,0"
+                       HorizontalAlignment="Stretch" materialDesign:HintAssist.Hint="Account Name"/>
+
+                    <TextBox x:Name="UsernameTextBox"
+                       Margin="0,8,0,0"
+                       HorizontalAlignment="Stretch" materialDesign:HintAssist.Hint="Username"/>
+
+                    <TextBox x:Name="PasswordTextBox"
+                       Margin="0,8,0,0"
+                       HorizontalAlignment="Stretch" materialDesign:HintAssist.Hint="Password"/>
+
+                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                        <Button x:Name="DialogAddButton" Margin="0,8,8,0"
+                        Content="ADD"
+                        IsDefault="True"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        Click="DialogAddButton_Click"/>
+
+
+                        <Button x:Name="DialogCancelButton" Margin="0,8,8,0"
+                        Content="CANCEL"
+                        IsCancel="True"
+                        Style="{StaticResource MaterialDesignFlatButton}" 
+                            Click="DialogCancelButton_Click"/>
+
+                    </StackPanel>
+                </StackPanel>
+            </materialDesign:DialogHost.DialogContent>
+        </materialDesign:DialogHost>
+    </Grid>
+
     
 </Window>
