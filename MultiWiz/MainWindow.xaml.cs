@@ -97,7 +97,15 @@ namespace MultiWiz
 
         public MainWindow()
         {
-            
+            string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string multiWizPath = System.IO.Path.Combine(appDataPath, "MultiWiz");
+
+        // Ensure the MultiWiz directory exists
+        Directory.CreateDirectory(multiWizPath);
+
+        // Set the path for config.txt within the MultiWiz directory
+        string configPath = System.IO.Path.Combine(multiWizPath, "config.txt");
+            this.path = configPath;
             InitializeComponent();
             SquirrelAwareApp.HandleEvents(
     onInitialInstall: OnAppInstall,
