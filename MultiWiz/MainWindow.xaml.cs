@@ -28,7 +28,7 @@ using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
 using System.Xml.Linq;
 using Squirrel;
-
+using Squirrel.Sources;
 
 
 namespace MultiWiz
@@ -40,23 +40,46 @@ namespace MultiWiz
     public partial class MainWindow : Window
     {
 
-        UpdateManager manager;
 
-        public async void IsUpdateAvailable()
+        private async Task UpdateMyApp()
         {
+            
             String Token = "YOUR_GITHUB_TOKEN_HERE";
-            manager = await UpdateManager.GitHubUpdateManager("https://github.com/jlwilley/MultiWiz" , null, null, null, false, Token);
-            await HandleUpdateAvailability();
+            using var mgr = new UpdateManager(new GithubSource("https://github.com/jlwilley/MultiWiz", Token, false));
+            if (mgr.IsInstalledApp)
+            {
+                var newVersion = await mgr.UpdateApp();
+                
+                // optionally restart the app automatically, or ask the user if/when they want to restart
+                if (newVersion != null)
+                {
+                    var result = await UpdateDialogHost.ShowDialog(UpdateDialogHost.Content);
+                    if ((bool)result)
+                    {
+                        UpdateManager.RestartApp();
+                    }
+
+
+                }
+            }
         }
 
-        private async Task HandleUpdateAvailability()
+        private static void OnAppInstall(SemanticVersion version, IAppTools tools)
         {
-            var updateInfo = await manager.CheckForUpdate();
-            if (updateInfo.ReleasesToApply.Any())
-            {
-                await manager.UpdateApp();
-            }
-            MessageBox.Show("Updated succesfuly!");
+            tools.CreateShortcutForThisExe(ShortcutLocation.StartMenu | ShortcutLocation.Desktop);
+        }
+
+        private static void OnAppUninstall(SemanticVersion version, IAppTools tools)
+        {
+            tools.RemoveShortcutForThisExe(ShortcutLocation.StartMenu | ShortcutLocation.Desktop);
+        }
+
+        private async void OnAppRun(SemanticVersion version, IAppTools tools, bool firstRun)
+        {
+            tools.SetProcessAppUserModelId();
+            // show a welcome message when the app is first installed
+            if (firstRun) MessageBox.Show("MultiWiz Successfully Installed");
+            await UpdateMyApp();
         }
 
         string path = ".\\config.txt";
@@ -74,13 +97,16 @@ namespace MultiWiz
 
         public MainWindow()
         {
-            IsUpdateAvailable();
+            
             InitializeComponent();
+            SquirrelAwareApp.HandleEvents(
+    onInitialInstall: OnAppInstall,
+    onAppUninstall: OnAppUninstall,
+    onEveryRun: OnAppRun);
             Accounts = new ObservableCollection<account>();
             loadInformation();
             AccountView.ItemsSource = Accounts;
 
-            Task.Run(() => HandleUpdateAvailability());
         }
 
         protected override void OnClosing( CancelEventArgs e)
