@@ -112,7 +112,16 @@ namespace MultiWiz
         protected override void OnClosing( CancelEventArgs e)
         {
             saveInformation();
+            closeAllAccounts;
             base.OnClosing(e);
+        }
+
+        public void closeAllAccounts()
+        {
+              foreach(account a in Accounts)
+            {
+                a.StopWizard();
+            }
         }
 
         public void addAccount(account a)
