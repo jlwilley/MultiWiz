@@ -55,7 +55,7 @@
                     <ColumnDefinition Width="43*"/>
                     <ColumnDefinition Width="6*"/>
                 </Grid.ColumnDefinitions>
-                <Button Content="{materialDesign:PackIcon settings}" x:Name="SettingsButton" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Style="{DynamicResource MaterialDesignFloatingActionLightButton}" Height="40" Width="40" />
+            <Button Content="{materialDesign:PackIcon settings}" x:Name="SettingsButton" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Style="{DynamicResource MaterialDesignFloatingActionLightButton}" Height="40" Width="40" Click="SettingsButton_Click" />
                 <Button x:Name="SwitchButton" Content="{materialDesign:PackIcon SwapHorizontal}" HorizontalAlignment="Left" Margin="240,0,0,0" VerticalAlignment="Center" Style="{DynamicResource MaterialDesignRaisedLightButton}" Click="SwitchButton_Click"/>
                 <Button x:Name="DeleteButton" Content="{materialDesign:PackIcon delete}" HorizontalAlignment="Left" Margin="166,0,0,0" VerticalAlignment="Center" Style="{DynamicResource MaterialDesignRaisedLightButton}" Click="DeleteButton_Click"/>
                 <Button Content="{materialDesign:PackIcon plus}" x:Name="AddButton" HorizontalAlignment="Left" Margin="92,0,0,0" VerticalAlignment="Center" Style="{DynamicResource MaterialDesignRaisedLightButton}" Click="AddButton_Click" />
@@ -110,6 +110,39 @@
                 </StackPanel>
             </materialDesign:DialogHost.DialogContent>
         </materialDesign:DialogHost>
+        <!-- Settings DialogHost -->
+        <materialDesign:DialogHost x:Name="SettingsDialogHost" DataContext="{Binding RelativeSource={RelativeSource AncestorType=Window}}">
+            <materialDesign:DialogHost.DialogContent>
+                <StackPanel Margin="16">
+                    <TextBlock Text="Settings" FontSize="18" FontWeight="Bold" Margin="0,0,0,16" />
+
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Dark Mode" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                        <ToggleButton x:Name="DarkModeToggle" 
+                              IsChecked="{Binding IsDarkModeEnabled, Mode=TwoWay}" 
+                              Style="{StaticResource MaterialDesignSwitchToggleButton}" 
+                              VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,8,0,0">
+                        <TextBlock Text="Wait Time (seconds)" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                        <TextBox x:Name="WaitTextBox" 
+                         Text="{Binding Wait, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         VerticalAlignment="Center" Width="50" HorizontalAlignment="Left"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                        <Button Content="SAVE" Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
+                        CommandParameter="True" Style="{StaticResource MaterialDesignFlatButton}" 
+                        Click="SaveSettingsButton_Click" />
+                        <Button Content="CANCEL" Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}" 
+                        CommandParameter="False" Style="{StaticResource MaterialDesignFlatButton}" />
+                    </StackPanel>
+                </StackPanel>
+            </materialDesign:DialogHost.DialogContent>
+        </materialDesign:DialogHost>
+
+
     </Grid>
 
     

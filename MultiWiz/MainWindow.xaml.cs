@@ -37,9 +37,15 @@ namespace MultiWiz
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, INotifyPropertyChanged
     {
+        public event PropertyChangedEventHandler PropertyChanged;
 
+        // Method to raise the PropertyChanged event
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
 
         private async Task UpdateMyApp()
         {
@@ -83,11 +89,11 @@ namespace MultiWiz
         }
 
         string path = ".\\config.txt";
+        private string settingsPath = ".\\settings.txt";
 
         public ObservableCollection<account> Accounts;
 
         private static readonly object loginLock = new object();
-
 
 
         // Import the necessary functions from user32.dll
@@ -99,13 +105,15 @@ namespace MultiWiz
         {
             string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             string multiWizPath = System.IO.Path.Combine(appDataPath, "MultiWiz");
+            this.DataContext = this;
 
-        // Ensure the MultiWiz directory exists
-        Directory.CreateDirectory(multiWizPath);
+            // Ensure the MultiWiz directory exists
+            Directory.CreateDirectory(multiWizPath);
 
         // Set the path for config.txt within the MultiWiz directory
         string configPath = System.IO.Path.Combine(multiWizPath, "config.txt");
             this.path = configPath;
+            this.settingsPath = System.IO.Path.Combine(multiWizPath, "settings.txt");
             InitializeComponent();
             SquirrelAwareApp.HandleEvents(
     onInitialInstall: OnAppInstall,
@@ -113,6 +121,7 @@ namespace MultiWiz
     onEveryRun: OnAppRun);
             Accounts = new ObservableCollection<account>();
             loadInformation();
+            loadSettings();
             AccountView.ItemsSource = Accounts;
 
         }
@@ -121,6 +130,7 @@ namespace MultiWiz
         {
             saveInformation();
             closeAllAccounts();
+            saveSettings();
             base.OnClosing(e);
         }
 
@@ -147,23 +157,95 @@ namespace MultiWiz
         //method for loading settings from file, such as dark mode, etc.
         private void loadSettings()
         {
-           
+            try
+            {
+                if (File.Exists(settingsPath))
+                {
+                    var settingsLines = File.ReadAllLines(settingsPath);
+                    foreach (var line in settingsLines)
+                    {
+                        var parts = line.Split('=');
+                        if (parts.Length != 2) continue;
+
+                        var key = parts[0].Trim();
+                        var value = parts[1].Trim();
+
+                        if (key == "IsDarkModeEnabled")
+                        {
+                            isDarkModeEnabled = bool.Parse(value);
+                            ApplyTheme();
+                        }
+                        else if (key == "Wait")
+                        {
+                            if (int.TryParse(value, out int waitSeconds))
+                            {
+                                Wait = waitSeconds;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading settings: {ex.Message}");
+            }
         }
 
         //method for saving settings to file, such as dark mode, etc.
         private void saveSettings()
         {
-
+            try
+            {
+                using (StreamWriter writer = new StreamWriter(settingsPath, append: false))
+                {
+                    writer.WriteLine($"IsDarkModeEnabled={IsDarkModeEnabled}");
+                    writer.WriteLine($"Wait={Wait}"); // Save Wait in seconds
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error saving settings: {ex.Message}");
+            }
         }
 
-        //method for changing to dark mode
-        private void darkMode()
+
+
+        private void ApplyTheme()
         {
-
+            var paletteHelper = new PaletteHelper();
+            ITheme theme = paletteHelper.GetTheme();
+            theme.SetBaseTheme(isDarkModeEnabled ? Theme.Dark : Theme.Light);
+            paletteHelper.SetTheme(theme);
         }
-       
 
-         
+        private bool isDarkModeEnabled;
+        public bool IsDarkModeEnabled
+        {
+            get => isDarkModeEnabled;
+            set
+            {
+                if (isDarkModeEnabled != value)
+                {
+                    isDarkModeEnabled = value;
+                    OnPropertyChanged(nameof(IsDarkModeEnabled)); // Notify the UI of the change
+                }
+            }
+        }
+
+        private int waitInSeconds = 6; // Default value is 6 seconds
+        public int Wait
+        {
+            get => waitInSeconds;
+            set
+            {
+                if (waitInSeconds != value)
+                {
+                    waitInSeconds = value;
+                    OnPropertyChanged(nameof(Wait)); // Notify UI of change
+                }
+            }
+        }
+
         //account class
         public class account : INotifyPropertyChanged
         {
@@ -205,7 +287,7 @@ namespace MultiWiz
             }
 
             //starts wizard 101 for assocaited account
-            public void StartWizard()
+            public void StartWizard(int Wait)
             {
                 ProcessStartInfo info = new ProcessStartInfo();
                 Process = new Process();
@@ -216,15 +298,15 @@ namespace MultiWiz
                 Process.Start();
                 IsRunning = true;
                 //uses a new thread
-                Thread loginThread = new Thread(login);
+                Thread loginThread = new Thread(() => login(Wait));
                 loginThread.Start();
                 
             }
 
-            public void login()
+            public void login(int Wait)
             {
                 //waits 5 seconds to ensure game loads
-                Thread.Sleep(5000);
+                Thread.Sleep(Wait * 1000);
                 //locks to ensure logins are correctly entererd individually
                 lock (loginLock)
                 {
@@ -312,6 +394,29 @@ namespace MultiWiz
             }
         }
 
+        private void SettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (SettingsDialogHost.DialogContent != null)
+            {
+                SettingsDialogHost.ShowDialog(SettingsDialogHost.DialogContent);
+            }
+        }
+
+        private void SaveSettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Apply the theme immediately to reflect any dark mode changes
+            ApplyTheme();
+
+            // Save the updated settings to the settings file
+            saveSettings();
+        }
+
+        private void CancelSettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Reload the settings from the file to revert any changes
+            loadSettings();
+        }
+
         private void DialogAddButton_Click(object sender, RoutedEventArgs e)
         {
             account a = new account(AccountNameTextBox.Text, UsernameTextBox.Text, PasswordTextBox.Text);
@@ -349,7 +454,7 @@ namespace MultiWiz
         {           
             foreach(account a in AccountView.SelectedItems)
             {
-                a.StartWizard();
+                a.StartWizard(waitInSeconds);
             }
         }
 
