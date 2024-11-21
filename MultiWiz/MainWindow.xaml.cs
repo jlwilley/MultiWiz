@@ -29,6 +29,7 @@ using System.Net.Http.Headers;
 using System.Xml.Linq;
 using Squirrel;
 using Squirrel.Sources;
+using NAudio.CoreAudioApi;
 
 
 namespace MultiWiz
@@ -94,8 +95,6 @@ namespace MultiWiz
         public ObservableCollection<account> Accounts;
 
         private static readonly object loginLock = new object();
-
-
         // Import the necessary functions from user32.dll
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -182,6 +181,17 @@ namespace MultiWiz
                                 Wait = waitSeconds;
                             }
                         }
+                        else if (key == "_muteWhenNotInFocus")
+                        {
+                            _muteWhenNotInFocus = bool.Parse(value);
+                        }
+                        else if (key == "_unmuteVolume")
+                        {
+                            if (uint.TryParse(value, out uint volume))
+                            {
+                                UnmuteVolume = volume;
+                            }
+                        }
                     }
                 }
             }
@@ -199,7 +209,9 @@ namespace MultiWiz
                 using (StreamWriter writer = new StreamWriter(settingsPath, append: false))
                 {
                     writer.WriteLine($"IsDarkModeEnabled={IsDarkModeEnabled}");
-                    writer.WriteLine($"Wait={Wait}"); // Save Wait in seconds
+                    writer.WriteLine($"Wait={Wait}");
+                    writer.WriteLine($"_muteWhenNotInFocus={_muteWhenNotInFocus}");
+                    writer.WriteLine($"_unmuteVolume={_unmuteVolume}");// Save Wait in seconds
                 }
             }
             catch (Exception ex)
@@ -246,6 +258,86 @@ namespace MultiWiz
             }
         }
 
+        private bool _muteWhenNotInFocus = true;
+        public bool MuteWhenNotInFocus
+        {
+            get => _muteWhenNotInFocus;
+            set
+            {
+                _muteWhenNotInFocus = value;
+                OnPropertyChanged(nameof(MuteWhenNotInFocus));
+            }
+        }
+
+        private uint _unmuteVolume = 100; // Maximum volume
+        public uint UnmuteVolume
+        {
+            get => _unmuteVolume;
+            set
+            {
+                _unmuteVolume = value;
+                OnPropertyChanged(nameof(UnmuteVolume));
+            }
+        }
+
+        private void MuteApplication(Process process)
+        {
+            if (process != null && MuteWhenNotInFocus)
+            {
+                Debug.WriteLine($"Muting {process.Id}");
+                SetApplicationVolume(process.Id, 0.0f);
+            }
+        }
+
+        // Method to unmute the application
+        private void UnmuteApplication(Process process)
+        {
+            if (process != null && MuteWhenNotInFocus)
+            {
+                Debug.WriteLine($"Unmuting {process.Id}");
+                SetApplicationVolume(process.Id, UnmuteVolume);
+            }
+        }
+
+        private void MuteOtherAccounts(account focusedAccount)
+        {
+            foreach (var account in Accounts)
+            {
+                if (account != focusedAccount && account.Process != null)
+                {
+                    MuteApplication(account.Process);
+                }
+            }
+        }
+
+        private void SetApplicationVolume(int processId, float volume)
+        {
+            var enumerator = new MMDeviceEnumerator();
+            var sessions = new List<AudioSessionControl>();
+
+            foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
+            {
+                var sessionCollection = device.AudioSessionManager.Sessions;
+                for (int i = 0; i < sessionCollection.Count; i++)
+                {
+                    var session = sessionCollection[i];
+                    if (session is AudioSessionControl audioSessionControl)
+                    {
+                        sessions.Add(audioSessionControl);
+                    }
+                }
+            }
+
+            foreach (var session in sessions)
+            {
+                if (session.GetProcessID == processId)
+                {
+                    session.SimpleAudioVolume.Volume = volume / 100.0f; // Convert volume to a value between 0.0 and 1.0
+                }
+            }
+        }
+
+
         //account class
         public class account : INotifyPropertyChanged
         {
@@ -262,6 +354,8 @@ namespace MultiWiz
             public string Password { get; set; }
             public Process? Process { get; set; }
 
+            private MainWindow Parent { get; set;}
+
             private bool isRunning;
             public bool IsRunning
             {
@@ -277,13 +371,15 @@ namespace MultiWiz
             }
 
 
-            public account(string name, string username, string password)
+
+            public account(string name, string username, string password, MainWindow parent)
             {
                 Name = name;
                 Username = username;
                 Password = password;
                 Process = null;
                 IsRunning = false;
+                Parent = parent;
             }
 
             //starts wizard 101 for assocaited account
@@ -345,6 +441,8 @@ namespace MultiWiz
                 if (Process != null)
                 {
                     SetForegroundWindow(Process.MainWindowHandle);
+                    Parent.UnmuteApplication(Process);
+                    Parent.MuteOtherAccounts(this);
                 }
             }
         }
@@ -361,7 +459,7 @@ namespace MultiWiz
                         while ((line = sr.ReadLine()) != null)
                         {
                             string[] info = line.Split(',');
-                            Accounts.Add(new account(info[0], info[1], info[2]));
+                            Accounts.Add(new account(info[0], info[1], info[2], this));
                         }
                     } catch
                     {
@@ -419,7 +517,7 @@ namespace MultiWiz
 
         private void DialogAddButton_Click(object sender, RoutedEventArgs e)
         {
-            account a = new account(AccountNameTextBox.Text, UsernameTextBox.Text, PasswordTextBox.Text);
+            account a = new account(AccountNameTextBox.Text, UsernameTextBox.Text, PasswordTextBox.Text, this);
             addAccount(a);
             CloseAddAccountDialog();
         }
