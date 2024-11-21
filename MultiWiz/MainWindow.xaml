@@ -131,6 +131,21 @@
                          VerticalAlignment="Center" Width="50" HorizontalAlignment="Left"/>
                     </StackPanel>
 
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,8,0,0">
+                        <TextBlock Text="Mute When Not In Focus" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                        <ToggleButton x:Name="MuteWhenNotInFocusToggle" 
+                              IsChecked="{Binding MuteWhenNotInFocus, Mode=TwoWay}" 
+                              Style="{StaticResource MaterialDesignSwitchToggleButton}" 
+                              VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,8,0,0">
+                        <TextBlock Text="Unmute Volume" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                        <TextBox x:Name="UnmuteVolumeTextBox" 
+                         Text="{Binding UnmuteVolume, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         VerticalAlignment="Center" Width="50" HorizontalAlignment="Left"/>
+                    </StackPanel>
+
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
                         <Button Content="SAVE" Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
                         CommandParameter="True" Style="{StaticResource MaterialDesignFlatButton}" 
