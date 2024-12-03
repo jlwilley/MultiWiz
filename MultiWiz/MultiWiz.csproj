@@ -49,7 +49,7 @@
 		<NugetTools>$(PkgNuGet_CommandLine)\tools</NugetTools>
 		<SquirrelTools>$(PkgClowd_Squirrel)\tools</SquirrelTools>
 
-		<Version>2.7.0</Version>
+		<Version>2.7.1</Version>
 
 		<NuspecFile>$(SolutionDir)MultiWiz\MultiWiz.nuspec</NuspecFile>
 
