@@ -51,7 +51,7 @@ namespace MultiWiz
         private async Task UpdateMyApp()
         {
             
-            String Token = "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";
+            String Token = "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";
             using var mgr = new UpdateManager(new GithubSource("https://github.com/jlwilley/MultiWiz", Token, false));
             if (mgr.IsInstalledApp)
             {
