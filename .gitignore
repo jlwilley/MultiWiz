@@ -365,3 +365,4 @@ FodyWeavers.xsd
 config.txt
 
 !Deployment/**
+/Deployment/

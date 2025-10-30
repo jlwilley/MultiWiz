@@ -27,8 +27,8 @@ using System.Net.Http;
 using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
 using System.Xml.Linq;
-using Squirrel;
-using Squirrel.Sources;
+using Velopack;
+using Velopack.Sources;
 using NAudio.CoreAudioApi;
 
 
@@ -50,44 +50,30 @@ namespace MultiWiz
 
         private async Task UpdateMyApp()
         {
-            
-            String Token = "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";
-            using var mgr = new UpdateManager(new GithubSource("https://github.com/jlwilley/MultiWiz", Token, false));
-            if (mgr.IsInstalledApp)
+            try
             {
-                var newVersion = await mgr.UpdateApp();
-                
-                // optionally restart the app automatically, or ask the user if/when they want to restart
+                String Token = "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";
+                var mgr = new UpdateManager(new GithubSource("https://github.com/jlwilley/MultiWiz", Token, false));
+
+                var newVersion = await mgr.CheckForUpdatesAsync();
                 if (newVersion != null)
                 {
+                    await mgr.DownloadUpdatesAsync(newVersion);
+
                     var result = await UpdateDialogHost.ShowDialog(UpdateDialogHost.Content);
                     if ((bool)result)
                     {
-                        UpdateManager.RestartApp();
+                        mgr.ApplyUpdatesAndRestart(newVersion);
                     }
-
-
                 }
+            }
+            catch (Exception ex)
+            {
+                // Handle update errors silently or log them
+                Debug.WriteLine($"Update check failed: {ex.Message}");
             }
         }
 
-        private static void OnAppInstall(SemanticVersion version, IAppTools tools)
-        {
-            tools.CreateShortcutForThisExe(ShortcutLocation.StartMenu | ShortcutLocation.Desktop);
-        }
-
-        private static void OnAppUninstall(SemanticVersion version, IAppTools tools)
-        {
-            tools.RemoveShortcutForThisExe(ShortcutLocation.StartMenu | ShortcutLocation.Desktop);
-        }
-
-        private async void OnAppRun(SemanticVersion version, IAppTools tools, bool firstRun)
-        {
-            tools.SetProcessAppUserModelId();
-            // show a welcome message when the app is first installed
-            if (firstRun) MessageBox.Show("MultiWiz Successfully Installed");
-            await UpdateMyApp();
-        }
 
         string path = ".\\config.txt";
         private string settingsPath = ".\\settings.txt";
@@ -114,10 +100,14 @@ namespace MultiWiz
             this.path = configPath;
             this.settingsPath = System.IO.Path.Combine(multiWizPath, "settings.txt");
             InitializeComponent();
-            SquirrelAwareApp.HandleEvents(
-    onInitialInstall: OnAppInstall,
-    onAppUninstall: OnAppUninstall,
-    onEveryRun: OnAppRun);
+
+            VelopackApp.Build()
+                .WithFirstRun(v => MessageBox.Show("MultiWiz Successfully Installed"))
+                .Run();
+
+            // Check for updates on startup
+            _ = UpdateMyApp();
+
             Accounts = new ObservableCollection<account>();
             loadInformation();
             loadSettings();
