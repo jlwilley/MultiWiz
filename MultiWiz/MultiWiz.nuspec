@@ -15,7 +15,7 @@
   </metadata>
 
   <files>
-    <file src="bin\Release\net6.0-windows10.0.18362.0\**" target="lib\net6.0-windows10.0.18362.0" />
+    <file src="bin\Release\net8.0-windows10.0.18362.0\**" target="lib\net8.0-windows10.0.18362.0" />
   </files>
   
   
