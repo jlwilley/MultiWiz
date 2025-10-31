@@ -1,5 +1,4 @@
-﻿<Window x:Class="MultiWiz.MainWindow"
-
+<Window x:Class="MultiWiz.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -12,164 +11,278 @@
         TextElement.FontSize="14"
         FontFamily="{materialDesign:MaterialDesignFont}"
         mc:Ignorable="d"
-        Title="MultiWiz" Height="450" Width="600" Icon="/magic-wand.ico">
+        Title="MultiWiz - Game Account Manager" Height="600" Width="850" MinWidth="700" MinHeight="400" Icon="/magic-wand.ico">
 
     <Window.Resources>
         <local:GameServerToDisplayNameConverter x:Key="ServerDisplayConverter" />
     </Window.Resources>
 
-    <Grid x:Name="GridLayout">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="369*"/>
-                <RowDefinition Height="65*"/>
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="738*"/>
-            </Grid.ColumnDefinitions>
-            <ListView Name="AccountView" HorizontalContentAlignment="Stretch" SelectionMode="Single">
-                <ListView.ItemTemplate>
-                    <DataTemplate>
-                        <materialDesign:Card Padding="8" Margin="4" UniformCornerRadius="4">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="150" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-                                <!-- Account Info Section -->
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="16" />
-                                    <TextBlock Text="{Binding Username}" FontSize="12" Opacity="0.7" />
-                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                        <materialDesign:PackIcon Kind="Circle" Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,4,0">
-                                            <materialDesign:PackIcon.Style>
-                                                <Style TargetType="materialDesign:PackIcon">
-                                                    <Setter Property="Foreground" Value="Gray" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsRunning}" Value="True">
-                                                            <Setter Property="Foreground" Value="LimeGreen" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </materialDesign:PackIcon.Style>
-                                        </materialDesign:PackIcon>
-                                        <TextBlock FontSize="11" VerticalAlignment="Center">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Text" Value="Offline" />
-                                                    <Setter Property="Foreground" Value="Gray" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsRunning}" Value="True">
-                                                            <Setter Property="Text" Value="Running" />
-                                                            <Setter Property="Foreground" Value="LimeGreen" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </StackPanel>
+        <!-- Top Toolbar -->
+        <materialDesign:ColorZone Grid.Row="0" Mode="PrimaryMid" Padding="16" materialDesign:ElevationAssist.Elevation="Dp4">
+            <DockPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <materialDesign:PackIcon Kind="AccountMultiple" Width="32" Height="32" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBlock Text="MultiWiz" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right">
+                    <!-- Add Account Button -->
+                    <Button Style="{StaticResource MaterialDesignRaisedButton}"
+                            Margin="0,0,8,0"
+                            Click="AddButton_Click"
+                            ToolTip="Add New Account">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Plus" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Add Account" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Launch All Button -->
+                    <Button Style="{StaticResource MaterialDesignRaisedButton}"
+                            Margin="0,0,8,0"
+                            Click="PlayButton_Click"
+                            ToolTip="Launch Selected Accounts">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="PlayCircle" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Launch" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Delete Button -->
+                    <Button Style="{StaticResource MaterialDesignRaisedButton}"
+                            Margin="0,0,8,0"
+                            Click="DeleteButton_Click"
+                            ToolTip="Delete Selected Accounts">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Delete" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Delete" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Switch Window Button -->
+                    <Button Style="{StaticResource MaterialDesignRaisedButton}"
+                            Margin="0,0,8,0"
+                            Click="SwitchButton_Click"
+                            ToolTip="Quick Switch Between Running Games">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="SwapHorizontal" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Quick Switch" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Settings Button -->
+                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                            Width="40" Height="40"
+                            Click="SettingsButton_Click"
+                            ToolTip="Settings">
+                        <materialDesign:PackIcon Kind="Settings" Width="24" Height="24"/>
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+        </materialDesign:ColorZone>
+
+        <!-- Account List -->
+        <ListView Name="AccountView"
+                  Grid.Row="1"
+                  Margin="16"
+                  HorizontalContentAlignment="Stretch"
+                  SelectionMode="Extended">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <materialDesign:Card Padding="16" Margin="0,4" UniformCornerRadius="8" materialDesign:ElevationAssist.Elevation="Dp2">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Account Info Section -->
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="18" />
+                                <TextBlock Text="{Binding Username}" FontSize="13" Opacity="0.7" Margin="0,2,0,0" />
+
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <!-- Status Indicator -->
+                                    <Border CornerRadius="12" Padding="8,4" Margin="0,0,12,0">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="#EEEEEE" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                                        <Setter Property="Background" Value="#C8E6C9" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,6,0">
+                                                <materialDesign:PackIcon.Style>
+                                                    <Style TargetType="materialDesign:PackIcon">
+                                                        <Setter Property="Kind" Value="CircleOutline" />
+                                                        <Setter Property="Foreground" Value="Gray" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                                                <Setter Property="Kind" Value="CheckCircle" />
+                                                                <Setter Property="Foreground" Value="#4CAF50" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </materialDesign:PackIcon.Style>
+                                            </materialDesign:PackIcon>
+                                            <TextBlock FontSize="12" FontWeight="Medium" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="Offline" />
+                                                        <Setter Property="Foreground" Value="Gray" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                                                <Setter Property="Text" Value="Running" />
+                                                                <Setter Property="Foreground" Value="#4CAF50" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Server Info -->
+                                    <Border CornerRadius="12" Padding="8,4" Background="#E3F2FD">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Server" Width="14" Height="14" Foreground="#1976D2" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text="{Binding ServerDisplayName}" FontSize="12" FontWeight="Medium" Foreground="#1976D2" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
+                            </StackPanel>
 
-                                <!-- Server Display -->
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0">
-                                    <TextBlock Text="Server" FontSize="10" Opacity="0.6" />
-                                    <TextBlock Text="{Binding ServerDisplayName}" FontSize="14" FontWeight="Medium" />
+                            <!-- Focus Button (only visible when running) -->
+                            <Button Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Margin="8,0"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                                    ToolTip="Switch focus to this game window"
+                                    Click="FocusButton_Click"
+                                    Tag="{Binding}">
+                                <Button.Visibility>
+                                    <Binding Path="IsRunning">
+                                        <Binding.Converter>
+                                            <local:BooleanToVisibilityConverter/>
+                                        </Binding.Converter>
+                                    </Binding>
+                                </Button.Visibility>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Eye" Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Focus" VerticalAlignment="Center"/>
                                 </StackPanel>
+                            </Button>
 
-                                <!-- Edit Button -->
-                                <Button Grid.Column="2" VerticalAlignment="Center" Margin="8,0"
-                                        Style="{StaticResource MaterialDesignIconButton}"
-                                        ToolTip="Edit Account"
-                                        Click="EditAccountButton_Click"
-                                        Tag="{Binding}">
-                                    <materialDesign:PackIcon Kind="Pencil" Width="20" Height="20" />
-                                </Button>
+                            <!-- Edit Button -->
+                            <Button Grid.Column="2"
+                                    VerticalAlignment="Center"
+                                    Margin="8,0"
+                                    Style="{StaticResource MaterialDesignIconButton}"
+                                    ToolTip="Edit Account Settings"
+                                    Click="EditAccountButton_Click"
+                                    Tag="{Binding}">
+                                <materialDesign:PackIcon Kind="Pencil" Width="20" Height="20" />
+                            </Button>
 
-                                <!-- Launch/Stop Button -->
-                                <Button Grid.Column="3" VerticalAlignment="Center" Margin="8,0"
-                                        ToolTip="{Binding LaunchButtonTooltip}"
-                                        Click="LaunchStopButton_Click"
-                                        Tag="{Binding}">
-                                    <Button.Content>
-                                        <materialDesign:PackIcon Width="24" Height="24">
-                                            <materialDesign:PackIcon.Style>
-                                                <Style TargetType="materialDesign:PackIcon">
-                                                    <Setter Property="Kind" Value="Play" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsRunning}" Value="True">
-                                                            <Setter Property="Kind" Value="Stop" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </materialDesign:PackIcon.Style>
-                                        </materialDesign:PackIcon>
-                                    </Button.Content>
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignFloatingActionButton}">
-                                            <Setter Property="Background" Value="{DynamicResource PrimaryHueMidBrush}" />
+                            <!-- Launch/Stop Button -->
+                            <Button Grid.Column="3"
+                                    VerticalAlignment="Center"
+                                    Margin="8,0"
+                                    Width="48" Height="48"
+                                    ToolTip="{Binding LaunchButtonTooltip}"
+                                    Click="LaunchStopButton_Click"
+                                    Tag="{Binding}">
+                                <materialDesign:PackIcon Width="28" Height="28">
+                                    <materialDesign:PackIcon.Style>
+                                        <Style TargetType="materialDesign:PackIcon">
+                                            <Setter Property="Kind" Value="Play" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsRunning}" Value="True">
-                                                    <Setter Property="Background" Value="#F44336" />
+                                                    <Setter Property="Kind" Value="Stop" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
-                                    </Button.Style>
-                                </Button>
-                            </Grid>
-                        </materialDesign:Card>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
-            <Grid Grid.Row="1">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="43*"/>
-                    <ColumnDefinition Width="6*"/>
-                </Grid.ColumnDefinitions>
-            <Button Content="{materialDesign:PackIcon settings}" x:Name="SettingsButton" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Style="{DynamicResource MaterialDesignFloatingActionLightButton}" Height="40" Width="40" Click="SettingsButton_Click" />
-                <Button x:Name="SwitchButton" Content="{materialDesign:PackIcon SwapHorizontal}" HorizontalAlignment="Left" Margin="240,0,0,0" VerticalAlignment="Center" Style="{DynamicResource MaterialDesignRaisedLightButton}" Click="SwitchButton_Click"/>
-                <Button x:Name="DeleteButton" Content="{materialDesign:PackIcon delete}" HorizontalAlignment="Left" Margin="166,0,0,0" VerticalAlignment="Center" Style="{DynamicResource MaterialDesignRaisedLightButton}" Click="DeleteButton_Click"/>
-                <Button Content="{materialDesign:PackIcon plus}" x:Name="AddButton" HorizontalAlignment="Left" Margin="92,0,0,0" VerticalAlignment="Center" Style="{DynamicResource MaterialDesignRaisedLightButton}" Click="AddButton_Click" />
-                <Button x:Name="PlayButton" Content="{materialDesign:PackIcon play}" HorizontalAlignment="Left" Margin="18,0,0,0" VerticalAlignment="Center" Style="{DynamicResource MaterialDesignRaisedLightButton}" Click="PlayButton_Click"/>
-            </Grid>
-        <materialDesign:DialogHost x:Name="UpdateDialogHost">
+                                    </materialDesign:PackIcon.Style>
+                                </materialDesign:PackIcon>
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignFloatingActionButton}">
+                                        <Setter Property="Background" Value="{DynamicResource PrimaryHueMidBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                                <Setter Property="Background" Value="#F44336" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Grid>
+                    </materialDesign:Card>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <!-- Update Dialog -->
+        <materialDesign:DialogHost x:Name="UpdateDialogHost" Grid.RowSpan="2">
             <materialDesign:DialogHost.DialogContent>
-                <StackPanel>
-                    <TextBlock Text="An update is available. Would you like to update now?" 
-                           Margin="16"/>
+                <StackPanel Margin="24" MinWidth="350">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <materialDesign:PackIcon Kind="Update" Width="32" Height="32" Foreground="{DynamicResource PrimaryHueMidBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <TextBlock Text="Update Available" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Text="A new version of MultiWiz is available. Would you like to update and restart now?"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,24"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}" 
-                            CommandParameter="True" Content="YES" Style="{StaticResource MaterialDesignFlatButton}"/>
-                        <Button Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}" 
-                            CommandParameter="False" Content="NO" Style="{StaticResource MaterialDesignFlatButton}"/>
+                        <Button Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
+                                CommandParameter="True"
+                                Content="UPDATE NOW"
+                                Style="{StaticResource MaterialDesignRaisedButton}"
+                                Margin="0,0,8,0"/>
+                        <Button Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
+                                CommandParameter="False"
+                                Content="LATER"
+                                Style="{StaticResource MaterialDesignFlatButton}"/>
                     </StackPanel>
                 </StackPanel>
             </materialDesign:DialogHost.DialogContent>
         </materialDesign:DialogHost>
-        <materialDesign:DialogHost x:Name="AddDialog">
+
+        <!-- Add Account Dialog -->
+        <materialDesign:DialogHost x:Name="AddDialog" Grid.RowSpan="2">
             <materialDesign:DialogHost.DialogContent>
-                <StackPanel Margin="16" MinWidth="300">
-                    <TextBlock Text="Add a new account" FontSize="18" FontWeight="Bold" Margin="0,0,0,16" />
+                <StackPanel Margin="24" MinWidth="400">
+                    <TextBlock Text="Add New Account" FontSize="20" FontWeight="Bold" Margin="0,0,0,20" />
 
                     <TextBox x:Name="AccountNameTextBox"
-                       Margin="0,8,0,0"
-                       HorizontalAlignment="Stretch" materialDesign:HintAssist.Hint="Account Name"
-                       Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                             Margin="0,0,0,12"
+                             materialDesign:HintAssist.Hint="Account Name"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
 
                     <TextBox x:Name="UsernameTextBox"
-                       Margin="0,8,0,0"
-                       HorizontalAlignment="Stretch" materialDesign:HintAssist.Hint="Username"
-                       Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                             Margin="0,0,0,12"
+                             materialDesign:HintAssist.Hint="Username"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
 
                     <PasswordBox x:Name="PasswordTextBox"
-                       Margin="0,8,0,0"
-                       HorizontalAlignment="Stretch" materialDesign:HintAssist.Hint="Password"
-                       Style="{StaticResource MaterialDesignOutlinedPasswordBox}"/>
+                                 Margin="0,0,0,12"
+                                 materialDesign:HintAssist.Hint="Password"
+                                 Style="{StaticResource MaterialDesignOutlinedPasswordBox}"/>
 
                     <ComboBox x:Name="ServerComboBox"
-                              Margin="0,8,0,0"
-                              HorizontalAlignment="Stretch"
+                              Margin="0,0,0,12"
                               materialDesign:HintAssist.Hint="Server"
                               Style="{StaticResource MaterialDesignOutlinedComboBox}">
                         <ComboBox.ItemsSource>
@@ -187,46 +300,46 @@
                     </ComboBox>
 
                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Margin="0,16,0,0">
-                        <Button x:Name="DialogAddButton" Margin="0,0,8,0"
-                        Content="ADD"
-                        IsDefault="True"
-                        Style="{StaticResource MaterialDesignFlatButton}"
-                        Click="DialogAddButton_Click"/>
+                        <Button x:Name="DialogAddButton"
+                                Content="ADD"
+                                IsDefault="True"
+                                Style="{StaticResource MaterialDesignRaisedButton}"
+                                Margin="0,0,8,0"
+                                Click="DialogAddButton_Click"/>
 
                         <Button x:Name="DialogCancelButton"
-                        Content="CANCEL"
-                        IsCancel="True"
-                        Style="{StaticResource MaterialDesignFlatButton}"
-                            Click="DialogCancelButton_Click"/>
-
+                                Content="CANCEL"
+                                IsCancel="True"
+                                Style="{StaticResource MaterialDesignFlatButton}"
+                                Click="DialogCancelButton_Click"/>
                     </StackPanel>
                 </StackPanel>
             </materialDesign:DialogHost.DialogContent>
         </materialDesign:DialogHost>
-        <!-- Edit Account DialogHost -->
-        <materialDesign:DialogHost x:Name="EditDialog">
+
+        <!-- Edit Account Dialog -->
+        <materialDesign:DialogHost x:Name="EditDialog" Grid.RowSpan="2">
             <materialDesign:DialogHost.DialogContent>
-                <StackPanel Margin="16" MinWidth="300">
-                    <TextBlock Text="Edit Account" FontSize="18" FontWeight="Bold" Margin="0,0,0,16" />
+                <StackPanel Margin="24" MinWidth="400">
+                    <TextBlock Text="Edit Account" FontSize="20" FontWeight="Bold" Margin="0,0,0,20" />
 
                     <TextBox x:Name="EditAccountNameTextBox"
-                       Margin="0,8,0,0"
-                       HorizontalAlignment="Stretch" materialDesign:HintAssist.Hint="Account Name"
-                       Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                             Margin="0,0,0,12"
+                             materialDesign:HintAssist.Hint="Account Name"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
 
                     <TextBox x:Name="EditUsernameTextBox"
-                       Margin="0,8,0,0"
-                       HorizontalAlignment="Stretch" materialDesign:HintAssist.Hint="Username"
-                       Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                             Margin="0,0,0,12"
+                             materialDesign:HintAssist.Hint="Username"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
 
                     <PasswordBox x:Name="EditPasswordTextBox"
-                       Margin="0,8,0,0"
-                       HorizontalAlignment="Stretch" materialDesign:HintAssist.Hint="Password"
-                       Style="{StaticResource MaterialDesignOutlinedPasswordBox}"/>
+                                 Margin="0,0,0,12"
+                                 materialDesign:HintAssist.Hint="Password"
+                                 Style="{StaticResource MaterialDesignOutlinedPasswordBox}"/>
 
                     <ComboBox x:Name="EditServerComboBox"
-                              Margin="0,8,0,0"
-                              HorizontalAlignment="Stretch"
+                              Margin="0,0,0,12"
                               materialDesign:HintAssist.Hint="Server"
                               Style="{StaticResource MaterialDesignOutlinedComboBox}">
                         <ComboBox.ItemsSource>
@@ -244,71 +357,94 @@
                     </ComboBox>
 
                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Margin="0,16,0,0">
-                        <Button x:Name="DialogEditSaveButton" Margin="0,0,8,0"
-                        Content="SAVE"
-                        IsDefault="True"
-                        Style="{StaticResource MaterialDesignFlatButton}"
-                        Click="DialogEditSaveButton_Click"/>
+                        <Button x:Name="DialogEditSaveButton"
+                                Content="SAVE"
+                                IsDefault="True"
+                                Style="{StaticResource MaterialDesignRaisedButton}"
+                                Margin="0,0,8,0"
+                                Click="DialogEditSaveButton_Click"/>
 
                         <Button x:Name="DialogEditCancelButton"
-                        Content="CANCEL"
-                        IsCancel="True"
-                        Style="{StaticResource MaterialDesignFlatButton}"
-                            Click="DialogEditCancelButton_Click"/>
-
+                                Content="CANCEL"
+                                IsCancel="True"
+                                Style="{StaticResource MaterialDesignFlatButton}"
+                                Click="DialogEditCancelButton_Click"/>
                     </StackPanel>
                 </StackPanel>
             </materialDesign:DialogHost.DialogContent>
         </materialDesign:DialogHost>
-        <!-- Settings DialogHost -->
-        <materialDesign:DialogHost x:Name="SettingsDialogHost" DataContext="{Binding RelativeSource={RelativeSource AncestorType=Window}}">
+
+        <!-- Settings Dialog -->
+        <materialDesign:DialogHost x:Name="SettingsDialogHost" Grid.RowSpan="2" DataContext="{Binding RelativeSource={RelativeSource AncestorType=Window}}">
             <materialDesign:DialogHost.DialogContent>
-                <StackPanel Margin="16">
-                    <TextBlock Text="Settings" FontSize="18" FontWeight="Bold" Margin="0,0,0,16" />
+                <StackPanel Margin="24" MinWidth="450">
+                    <TextBlock Text="Settings" FontSize="20" FontWeight="Bold" Margin="0,0,0,20" />
 
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="Dark Mode" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                        <ToggleButton x:Name="DarkModeToggle" 
-                              IsChecked="{Binding IsDarkModeEnabled, Mode=TwoWay}" 
-                              Style="{StaticResource MaterialDesignSwitchToggleButton}" 
-                              VerticalAlignment="Center" />
+                    <!-- Appearance Section -->
+                    <TextBlock Text="APPEARANCE" FontSize="12" FontWeight="Bold" Opacity="0.7" Margin="0,0,0,8"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <materialDesign:PackIcon Kind="ThemeLightDark" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,12,0" Opacity="0.7"/>
+                        <TextBlock Text="Dark Mode" VerticalAlignment="Center" Width="150"/>
+                        <ToggleButton x:Name="DarkModeToggle"
+                                      IsChecked="{Binding IsDarkModeEnabled, Mode=TwoWay}"
+                                      Style="{StaticResource MaterialDesignSwitchToggleButton}"
+                                      VerticalAlignment="Center" />
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,8,0,0">
-                        <TextBlock Text="Wait Time (seconds)" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                        <TextBox x:Name="WaitTextBox" 
-                         Text="{Binding Wait, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         VerticalAlignment="Center" Width="50" HorizontalAlignment="Left"/>
+                    <Separator Margin="0,8,0,16"/>
+
+                    <!-- Game Launch Section -->
+                    <TextBlock Text="GAME LAUNCH" FontSize="12" FontWeight="Bold" Opacity="0.7" Margin="0,0,0,8"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <materialDesign:PackIcon Kind="Timer" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,12,0" Opacity="0.7"/>
+                        <TextBlock Text="Wait Time (seconds)" VerticalAlignment="Center" Width="150"/>
+                        <TextBox x:Name="WaitTextBox"
+                                 Text="{Binding Wait, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 VerticalAlignment="Center"
+                                 Width="100"
+                                 materialDesign:HintAssist.Hint="Seconds"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,8,0,0">
-                        <TextBlock Text="Mute When Not In Focus" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                        <ToggleButton x:Name="MuteWhenNotInFocusToggle" 
-                              IsChecked="{Binding MuteWhenNotInFocus, Mode=TwoWay}" 
-                              Style="{StaticResource MaterialDesignSwitchToggleButton}" 
-                              VerticalAlignment="Center" />
+                    <Separator Margin="0,8,0,16"/>
+
+                    <!-- Audio Section -->
+                    <TextBlock Text="AUDIO" FontSize="12" FontWeight="Bold" Opacity="0.7" Margin="0,0,0,8"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <materialDesign:PackIcon Kind="VolumeMute" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,12,0" Opacity="0.7"/>
+                        <TextBlock Text="Mute When Not In Focus" VerticalAlignment="Center" Width="200"/>
+                        <ToggleButton x:Name="MuteWhenNotInFocusToggle"
+                                      IsChecked="{Binding MuteWhenNotInFocus, Mode=TwoWay}"
+                                      Style="{StaticResource MaterialDesignSwitchToggleButton}"
+                                      VerticalAlignment="Center" />
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,8,0,0">
-                        <TextBlock Text="Unmute Volume" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                        <TextBox x:Name="UnmuteVolumeTextBox" 
-                         Text="{Binding UnmuteVolume, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         VerticalAlignment="Center" Width="50" HorizontalAlignment="Left"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <materialDesign:PackIcon Kind="VolumeHigh" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,12,0" Opacity="0.7"/>
+                        <TextBlock Text="Unmute Volume" VerticalAlignment="Center" Width="150"/>
+                        <TextBox x:Name="UnmuteVolumeTextBox"
+                                 Text="{Binding UnmuteVolume, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 VerticalAlignment="Center"
+                                 Width="100"
+                                 materialDesign:HintAssist.Hint="0-100"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-                        <Button Content="SAVE" Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
-                        CommandParameter="True" Style="{StaticResource MaterialDesignFlatButton}" 
-                        Click="SaveSettingsButton_Click" />
-                        <Button Content="CANCEL" Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}" 
-                        CommandParameter="False" Style="{StaticResource MaterialDesignFlatButton}" />
+                        <Button Content="SAVE"
+                                Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
+                                CommandParameter="True"
+                                Style="{StaticResource MaterialDesignRaisedButton}"
+                                Margin="0,0,8,0"
+                                Click="SaveSettingsButton_Click" />
+                        <Button Content="CANCEL"
+                                Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
+                                CommandParameter="False"
+                                Style="{StaticResource MaterialDesignFlatButton}"
+                                Click="CancelSettingsButton_Click" />
                     </StackPanel>
                 </StackPanel>
             </materialDesign:DialogHost.DialogContent>
         </materialDesign:DialogHost>
-
-
     </Grid>
-
-    
 </Window>

@@ -111,6 +111,26 @@ namespace MultiWiz
     }
 
     /// <summary>
+    /// Converter for Boolean to Visibility
+    /// </summary>
+    public class BooleanToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value is bool boolValue)
+            {
+                return boolValue ? Visibility.Visible : Visibility.Collapsed;
+            }
+            return Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow : Window, INotifyPropertyChanged
@@ -393,8 +413,8 @@ namespace MultiWiz
         private void ApplyTheme()
         {
             var paletteHelper = new PaletteHelper();
-            ITheme theme = paletteHelper.GetTheme();
-            theme.SetBaseTheme(isDarkModeEnabled ? Theme.Dark : Theme.Light);
+            var theme = paletteHelper.GetTheme();
+            theme.SetBaseTheme(isDarkModeEnabled ? BaseTheme.Dark : BaseTheme.Light);
             paletteHelper.SetTheme(theme);
         }
 
@@ -764,6 +784,14 @@ namespace MultiWiz
             account a = new account(AccountNameTextBox.Text, UsernameTextBox.Text, password, this, selectedServer);
             addAccount(a);
             CloseAddAccountDialog();
+        }
+
+        private void FocusButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is account acc)
+            {
+                acc.Focus();
+            }
         }
 
         private void LaunchStopButton_Click(object sender, RoutedEventArgs e)
