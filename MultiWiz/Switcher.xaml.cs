@@ -30,12 +30,15 @@ namespace MultiWiz
 
         public Switcher(MainWindow mw)
         {
-            mainWindow = mw; 
+            mainWindow = mw;
             InitializeComponent();
             buttons = new LinkedList<Button>();
             AddButtons();
             HotkeyManager.Current.AddOrReplace("MoveUp", Key.W, ModifierKeys.Control, MoveUp);
             HotkeyManager.Current.AddOrReplace("MoveDown", Key.S, ModifierKeys.Control, MoveDown);
+
+            // Apply opacity from settings
+            RootBorder.Opacity = mainWindow.SwitcherOpacity;
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
@@ -70,11 +73,12 @@ namespace MultiWiz
             foreach (account acc in mainWindow.Accounts)
             {
                 if(acc.IsRunning == true)
-                { 
+                {
                 Button btn = new Button();
                 btn.Content = acc.Name;
                 btn.Tag = acc;
-                btn.Height = 100;
+                btn.Height = 56;
+                btn.Style = (Style)FindResource("AccountCardStyle");
                     btn.Click += (s, e) => { HandleButton(s, e); };
                     DynamicButtonsArea.Items.Add(btn);
                     buttons.AddLast(btn);
@@ -97,16 +101,18 @@ namespace MultiWiz
 
         private void Mark(Button b)
         {
+            // Apply unmarked style to all buttons
             foreach( Button btn in buttons)
             {
                 if (btn != b)
                 {
-                    btn.BorderBrush = Brushes.Transparent;
-                    btn.BorderThickness = new Thickness(0);
+                    btn.Style = (Style)FindResource("AccountCardStyle");
                 }
-            }          
-            b.BorderBrush = Brushes.Red;
-            b.BorderThickness = new Thickness(3);
+            }
+
+            // Apply marked style to the selected button
+            // The check icon visibility is handled by the style's template
+            b.Style = (Style)FindResource("MarkedAccountCardStyle");
             currentButton = b;
         }
 

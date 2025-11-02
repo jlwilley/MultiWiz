@@ -380,6 +380,13 @@ namespace MultiWiz
                                 UnmuteVolume = volume;
                             }
                         }
+                        else if (key == "_switcherOpacity")
+                        {
+                            if (double.TryParse(value, out double opacity))
+                            {
+                                SwitcherOpacity = opacity;
+                            }
+                        }
                     }
                 }
             }
@@ -399,7 +406,8 @@ namespace MultiWiz
                     writer.WriteLine($"IsDarkModeEnabled={IsDarkModeEnabled}");
                     writer.WriteLine($"Wait={Wait}");
                     writer.WriteLine($"_muteWhenNotInFocus={_muteWhenNotInFocus}");
-                    writer.WriteLine($"_unmuteVolume={_unmuteVolume}");// Save Wait in seconds
+                    writer.WriteLine($"_unmuteVolume={_unmuteVolume}");
+                    writer.WriteLine($"_switcherOpacity={_switcherOpacity}");
                 }
             }
             catch (Exception ex)
@@ -465,6 +473,22 @@ namespace MultiWiz
             {
                 _unmuteVolume = value;
                 OnPropertyChanged(nameof(UnmuteVolume));
+            }
+        }
+
+        private double _switcherOpacity = 0.98; // Default 98% opacity
+        public double SwitcherOpacity
+        {
+            get => _switcherOpacity;
+            set
+            {
+                // Ensure opacity is between 0.1 (10%) and 1.0 (100%)
+                var clampedValue = Math.Max(0.1, Math.Min(1.0, value));
+                if (_switcherOpacity != clampedValue)
+                {
+                    _switcherOpacity = clampedValue;
+                    OnPropertyChanged(nameof(SwitcherOpacity));
+                }
             }
         }
 
