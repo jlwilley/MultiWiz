@@ -8,9 +8,68 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <materialDesign:BundledTheme BaseTheme="Light" PrimaryColor="DeepPurple" SecondaryColor="Lime" />
+                <materialDesign:BundledTheme BaseTheme="Dark" PrimaryColor="DeepPurple" SecondaryColor="Lime" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign3.Defaults.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Catppuccin Mocha Color Palette - Global Resources -->
+            <SolidColorBrush x:Key="CatppuccinRosewater" Color="#f5e0dc"/>
+            <SolidColorBrush x:Key="CatppuccinFlamingo" Color="#f2cdcd"/>
+            <SolidColorBrush x:Key="CatppuccinPink" Color="#f5c2e7"/>
+            <SolidColorBrush x:Key="CatppuccinMauve" Color="#cba6f7"/>
+            <SolidColorBrush x:Key="CatppuccinRed" Color="#f38ba8"/>
+            <SolidColorBrush x:Key="CatppuccinMaroon" Color="#eba0ac"/>
+            <SolidColorBrush x:Key="CatppuccinPeach" Color="#fab387"/>
+            <SolidColorBrush x:Key="CatppuccinYellow" Color="#f9e2af"/>
+            <SolidColorBrush x:Key="CatppuccinGreen" Color="#a6e3a1"/>
+            <SolidColorBrush x:Key="CatppuccinTeal" Color="#94e2d5"/>
+            <SolidColorBrush x:Key="CatppuccinSky" Color="#89dceb"/>
+            <SolidColorBrush x:Key="CatppuccinSapphire" Color="#74c7ec"/>
+            <SolidColorBrush x:Key="CatppuccinBlue" Color="#89b4fa"/>
+            <SolidColorBrush x:Key="CatppuccinLavender" Color="#b4befe"/>
+            <SolidColorBrush x:Key="CatppuccinText" Color="#cdd6f4"/>
+            <SolidColorBrush x:Key="CatppuccinSubtext1" Color="#bac2de"/>
+            <SolidColorBrush x:Key="CatppuccinSubtext0" Color="#a6adc8"/>
+            <SolidColorBrush x:Key="CatppuccinOverlay2" Color="#9399b2"/>
+            <SolidColorBrush x:Key="CatppuccinOverlay1" Color="#7f849c"/>
+            <SolidColorBrush x:Key="CatppuccinOverlay0" Color="#6c7086"/>
+            <SolidColorBrush x:Key="CatppuccinSurface2" Color="#585b70"/>
+            <SolidColorBrush x:Key="CatppuccinSurface1" Color="#45475a"/>
+            <SolidColorBrush x:Key="CatppuccinSurface0" Color="#313244"/>
+            <SolidColorBrush x:Key="CatppuccinBase" Color="#1e1e2e"/>
+            <SolidColorBrush x:Key="CatppuccinMantle" Color="#181825"/>
+            <SolidColorBrush x:Key="CatppuccinCrust" Color="#11111b"/>
+
+            <!-- Override Material Design Theme Colors with Catppuccin -->
+            <SolidColorBrush x:Key="MaterialDesignPaper" Color="#1e1e2e"/>
+            <SolidColorBrush x:Key="MaterialDesignBody" Color="#cdd6f4"/>
+            <SolidColorBrush x:Key="MaterialDesignBodyLight" Color="#bac2de"/>
+            <SolidColorBrush x:Key="MaterialDesignDarkBackground" Color="#11111b"/>
+            <SolidColorBrush x:Key="MaterialDesignBackground" Color="#1e1e2e"/>
+            <SolidColorBrush x:Key="MaterialDesignCardBackground" Color="#313244"/>
+            <SolidColorBrush x:Key="MaterialDesignToolBarBackground" Color="#181825"/>
+            <SolidColorBrush x:Key="MaterialDesignDivider" Color="#6c7086"/>
+            <SolidColorBrush x:Key="MaterialDesignSelection" Color="#45475a"/>
+
+            <!-- Override Primary Colors with Catppuccin Mauve -->
+            <SolidColorBrush x:Key="PrimaryHueLightBrush" Color="#b4befe"/>
+            <SolidColorBrush x:Key="PrimaryHueMidBrush" Color="#cba6f7"/>
+            <SolidColorBrush x:Key="PrimaryHueDarkBrush" Color="#9C27B0"/>
+
+            <!-- Override Secondary Colors with Catppuccin Green -->
+            <SolidColorBrush x:Key="SecondaryHueLightBrush" Color="#a6e3a1"/>
+            <SolidColorBrush x:Key="SecondaryHueMidBrush" Color="#94e2d5"/>
+            <SolidColorBrush x:Key="SecondaryHueDarkBrush" Color="#74c7ec"/>
+
+            <!-- Fix button foreground colors for better visibility -->
+            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                <Style.Triggers>
+                    <!-- Ensure icon buttons have visible foreground on dark backgrounds -->
+                    <Trigger Property="Background" Value="{x:Null}">
+                        <Setter Property="Foreground" Value="{StaticResource CatppuccinText}"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

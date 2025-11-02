@@ -27,8 +27,8 @@
         <materialDesign:ColorZone Grid.Row="0" Mode="PrimaryMid" Padding="16" materialDesign:ElevationAssist.Elevation="Dp4">
             <DockPanel>
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                    <materialDesign:PackIcon Kind="AccountMultiple" Width="32" Height="32" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                    <TextBlock Text="MultiWiz" FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
+                    <materialDesign:PackIcon Kind="AccountMultiple" Width="32" Height="32" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="{StaticResource CatppuccinText}"/>
+                    <TextBlock Text="MultiWiz" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" Foreground="{StaticResource CatppuccinText}"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right">
@@ -80,8 +80,9 @@
                     <Button Style="{StaticResource MaterialDesignIconButton}"
                             Width="40" Height="40"
                             Click="SettingsButton_Click"
-                            ToolTip="Settings">
-                        <materialDesign:PackIcon Kind="Settings" Width="24" Height="24"/>
+                            ToolTip="Settings"
+                            Foreground="{StaticResource CatppuccinText}">
+                        <materialDesign:PackIcon Kind="Cog" Width="24" Height="24"/>
                     </Button>
                 </StackPanel>
             </DockPanel>
@@ -115,10 +116,10 @@
                                     <Border CornerRadius="12" Padding="8,4" Margin="0,0,12,0">
                                         <Border.Style>
                                             <Style TargetType="Border">
-                                                <Setter Property="Background" Value="#EEEEEE" />
+                                                <Setter Property="Background" Value="{StaticResource CatppuccinSurface1}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsRunning}" Value="True">
-                                                        <Setter Property="Background" Value="#C8E6C9" />
+                                                        <Setter Property="Background" Value="{StaticResource CatppuccinSurface2}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -128,11 +129,11 @@
                                                 <materialDesign:PackIcon.Style>
                                                     <Style TargetType="materialDesign:PackIcon">
                                                         <Setter Property="Kind" Value="CircleOutline" />
-                                                        <Setter Property="Foreground" Value="Gray" />
+                                                        <Setter Property="Foreground" Value="{StaticResource CatppuccinSubtext0}" />
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsRunning}" Value="True">
                                                                 <Setter Property="Kind" Value="CheckCircle" />
-                                                                <Setter Property="Foreground" Value="#4CAF50" />
+                                                                <Setter Property="Foreground" Value="{StaticResource CatppuccinGreen}" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -142,11 +143,11 @@
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
                                                         <Setter Property="Text" Value="Offline" />
-                                                        <Setter Property="Foreground" Value="Gray" />
+                                                        <Setter Property="Foreground" Value="{StaticResource CatppuccinSubtext0}" />
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsRunning}" Value="True">
                                                                 <Setter Property="Text" Value="Running" />
-                                                                <Setter Property="Foreground" Value="#4CAF50" />
+                                                                <Setter Property="Foreground" Value="{StaticResource CatppuccinGreen}" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -156,10 +157,10 @@
                                     </Border>
 
                                     <!-- Server Info -->
-                                    <Border CornerRadius="12" Padding="8,4" Background="#E3F2FD">
+                                    <Border CornerRadius="12" Padding="8,4" Background="{StaticResource CatppuccinSurface1}">
                                         <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Kind="Server" Width="14" Height="14" Foreground="#1976D2" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                            <TextBlock Text="{Binding ServerDisplayName}" FontSize="12" FontWeight="Medium" Foreground="#1976D2" VerticalAlignment="Center" />
+                                            <materialDesign:PackIcon Kind="Server" Width="14" Height="14" Foreground="{StaticResource CatppuccinBlue}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text="{Binding ServerDisplayName}" FontSize="12" FontWeight="Medium" Foreground="{StaticResource CatppuccinBlue}" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
@@ -172,7 +173,9 @@
                                     Style="{StaticResource MaterialDesignOutlinedButton}"
                                     ToolTip="Switch focus to this game window"
                                     Click="FocusButton_Click"
-                                    Tag="{Binding}">
+                                    Tag="{Binding}"
+                                    BorderBrush="{StaticResource CatppuccinBlue}"
+                                    Foreground="{StaticResource CatppuccinBlue}">
                                 <Button.Visibility>
                                     <Binding Path="IsRunning">
                                         <Binding.Converter>
@@ -193,7 +196,8 @@
                                     Style="{StaticResource MaterialDesignIconButton}"
                                     ToolTip="Edit Account Settings"
                                     Click="EditAccountButton_Click"
-                                    Tag="{Binding}">
+                                    Tag="{Binding}"
+                                    Foreground="{StaticResource CatppuccinYellow}">
                                 <materialDesign:PackIcon Kind="Pencil" Width="20" Height="20" />
                             </Button>
 
@@ -222,7 +226,7 @@
                                         <Setter Property="Background" Value="{DynamicResource PrimaryHueMidBrush}" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsRunning}" Value="True">
-                                                <Setter Property="Background" Value="#F44336" />
+                                                <Setter Property="Background" Value="{StaticResource CatppuccinRed}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -428,6 +432,26 @@
                                  Width="100"
                                  materialDesign:HintAssist.Hint="0-100"
                                  Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                    </StackPanel>
+
+                    <Separator Margin="0,8,0,16"/>
+
+                    <!-- Quick Switcher Section -->
+                    <TextBlock Text="QUICK SWITCHER" FontSize="12" FontWeight="Bold" Opacity="0.7" Margin="0,0,0,8"/>
+                    <StackPanel Orientation="Vertical" Margin="0,0,0,16">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <materialDesign:PackIcon Kind="Opacity" Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,12,0" Opacity="0.7"/>
+                            <TextBlock Text="Window Opacity" VerticalAlignment="Center" Width="150"/>
+                            <TextBlock Text="{Binding SwitcherOpacity, StringFormat={}{0:P0}}" VerticalAlignment="Center" Width="50" Margin="8,0"/>
+                        </StackPanel>
+                        <Slider x:Name="SwitcherOpacitySlider"
+                                Minimum="0.1"
+                                Maximum="1.0"
+                                Value="{Binding SwitcherOpacity, Mode=TwoWay}"
+                                TickFrequency="0.1"
+                                IsSnapToTickEnabled="True"
+                                Margin="32,0,0,0"
+                                ToolTip="Adjust the opacity of the quick switcher window (minimum 10%)"/>
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
