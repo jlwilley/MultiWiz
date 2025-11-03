@@ -6,7 +6,7 @@
 
 A modern Windows desktop application for managing multiple KingsIsle game accounts with automatic login, quick window switching, and intelligent audio control.
 
-![Version](https://img.shields.io/badge/version-3.3.0-blue)
+![Version](https://img.shields.io/badge/version-3.3.1-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
 ![.NET](https://img.shields.io/badge/.NET-8.0-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)

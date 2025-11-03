@@ -22,6 +22,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using static MultiWiz.MainWindow;
 using System.Runtime.CompilerServices;
+using System.Windows.Interop;
 using System.Net.Http;
 using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
@@ -282,6 +283,28 @@ namespace MultiWiz
 
             PostMessage(hWnd, WM_KEYUP, (IntPtr)virtualKeyCode, new IntPtr(lParamUp));
             Thread.Sleep(50);
+        }
+
+        private void RefocusMainWindow()
+        {
+            if (!IsVisible)
+            {
+                return;
+            }
+
+            if (WindowState == WindowState.Minimized)
+            {
+                WindowState = WindowState.Normal;
+            }
+
+            Activate();
+            Focus();
+
+            var handle = new WindowInteropHelper(this).Handle;
+            if (handle != IntPtr.Zero)
+            {
+                SetForegroundWindow(handle);
+            }
         }
 
         public MainWindow()
@@ -668,6 +691,8 @@ namespace MultiWiz
                             // Send ENTER key
                             Debug.WriteLine($"Sending ENTER for {Name}");
                             MainWindow.SendKeyToWindow(mainWindowHandle, VK_RETURN);
+
+                            Parent.Dispatcher.BeginInvoke(new Action(Parent.RefocusMainWindow));
 
                             Debug.WriteLine($"Login sequence complete for {Name}");
                         }
