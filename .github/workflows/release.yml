@@ -1,0 +1,82 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - '.gitattributes'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+
+    - name: Publish
+      run: dotnet publish MultiWiz\MultiWiz.csproj --configuration Release --output ./publish --no-build
+
+    - name: Install Velopack
+      run: dotnet tool install -g vpk
+
+    - name: Get version from project
+      id: get_version
+      shell: pwsh
+      run: |
+        [xml]$csproj = Get-Content MultiWiz\MultiWiz.csproj
+        $version = $csproj.Project.PropertyGroup.Version
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "Version: $version"
+
+    - name: Package with Velopack
+      run: |
+        vpk pack --packId MultiWiz --packVersion ${{ steps.get_version.outputs.VERSION }} --packDir ./publish --mainExe MultiWiz.exe --outputDir ./Deployment/VelopackReleases
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.get_version.outputs.VERSION }}
+        release_name: MultiWiz v${{ steps.get_version.outputs.VERSION }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./Deployment/VelopackReleases/MultiWiz-${{ steps.get_version.outputs.VERSION }}-win.zip
+        asset_name: MultiWiz-${{ steps.get_version.outputs.VERSION }}-win.zip
+        asset_content_type: application/zip
+
+    - name: Upload Setup Executable (if exists)
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./Deployment/VelopackReleases/MultiWiz-Setup.exe
+        asset_name: MultiWiz-Setup-${{ steps.get_version.outputs.VERSION }}.exe
+        asset_content_type: application/octet-stream
+      continue-on-error: true
