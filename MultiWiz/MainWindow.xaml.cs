@@ -340,6 +340,7 @@ namespace MultiWiz
         {
             saveInformation();
             closeAllAccounts();
+            RestoreAllMutedVolumesAsync(runInBackground: false).GetAwaiter().GetResult();
             saveSettings();
             base.OnClosing(e);
         }
@@ -483,8 +484,16 @@ namespace MultiWiz
             get => _muteWhenNotInFocus;
             set
             {
-                _muteWhenNotInFocus = value;
-                OnPropertyChanged(nameof(MuteWhenNotInFocus));
+                if (_muteWhenNotInFocus != value)
+                {
+                    _muteWhenNotInFocus = value;
+                    OnPropertyChanged(nameof(MuteWhenNotInFocus));
+
+                    if (!_muteWhenNotInFocus)
+                    {
+                        _ = RestoreAllMutedVolumesAsync();
+                    }
+                }
             }
         }
 
@@ -494,8 +503,12 @@ namespace MultiWiz
             get => _unmuteVolume;
             set
             {
-                _unmuteVolume = value;
-                OnPropertyChanged(nameof(UnmuteVolume));
+                var clampedValue = Math.Min(value, 100u);
+                if (_unmuteVolume != clampedValue)
+                {
+                    _unmuteVolume = clampedValue;
+                    OnPropertyChanged(nameof(UnmuteVolume));
+                }
             }
         }
 
@@ -515,27 +528,39 @@ namespace MultiWiz
             }
         }
 
+        private readonly object _audioSessionLock = new();
+        private readonly Dictionary<int, float> _mutedProcessVolumes = new();
+
         private void MuteApplication(Process process)
         {
-            if (process != null && MuteWhenNotInFocus)
+            if (process == null || !MuteWhenNotInFocus)
             {
-                Debug.WriteLine($"Muting {process.Id}");
-                SetApplicationVolume(process.Id, 0.0f);
+                return;
             }
+
+            Debug.WriteLine($"Muting {process.Id}");
+            _ = QueueVolumeAdjustmentAsync(() => MuteProcessInternal(process.Id));
         }
 
         // Method to unmute the application
         private void UnmuteApplication(Process process)
         {
-            if (process != null && MuteWhenNotInFocus)
+            if (process == null)
             {
-                Debug.WriteLine($"Unmuting {process.Id}");
-                SetApplicationVolume(process.Id, UnmuteVolume);
+                return;
             }
+
+            Debug.WriteLine($"Unmuting {process.Id}");
+            _ = RestoreVolumeForProcessAsync(process.Id);
         }
 
         private void MuteOtherAccounts(account focusedAccount)
         {
+            if (!MuteWhenNotInFocus)
+            {
+                return;
+            }
+
             foreach (var account in Accounts)
             {
                 if (account != focusedAccount && account.Process != null)
@@ -545,31 +570,112 @@ namespace MultiWiz
             }
         }
 
-        private void SetApplicationVolume(int processId, float volume)
+        private Task RestoreVolumeForProcessAsync(int processId, bool runInBackground = true)
         {
-            var enumerator = new MMDeviceEnumerator();
-            var sessions = new List<AudioSessionControl>();
+            return QueueVolumeAdjustmentAsync(() => RestoreVolumeForProcessInternal(processId, UnmuteVolume), runInBackground);
+        }
 
+        private Task RestoreAllMutedVolumesAsync(bool runInBackground = true)
+        {
+            return QueueVolumeAdjustmentAsync(RestoreAllMutedVolumesInternal, runInBackground);
+        }
+
+        private Task QueueVolumeAdjustmentAsync(Action adjustment, bool runInBackground = true)
+        {
+            if (runInBackground)
+            {
+                return Task.Run(() => ExecuteAudioAdjustment(adjustment));
+            }
+
+            ExecuteAudioAdjustment(adjustment);
+            return Task.CompletedTask;
+        }
+
+        private void ExecuteAudioAdjustment(Action adjustment)
+        {
+            lock (_audioSessionLock)
+            {
+                try
+                {
+                    adjustment();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Audio adjustment failed: {ex.Message}");
+                }
+            }
+        }
+
+        private void MuteProcessInternal(int processId)
+        {
+            if (!MuteWhenNotInFocus)
+            {
+                return;
+            }
+
+            AdjustProcessVolume(processId, 0f, rememberCurrentVolume: true);
+        }
+
+        private void RestoreVolumeForProcessInternal(int processId, float? fallbackPercent = null)
+        {
+            if (_mutedProcessVolumes.TryGetValue(processId, out var cachedVolume))
+            {
+                AdjustProcessVolume(processId, cachedVolume * 100f, rememberCurrentVolume: false);
+                _mutedProcessVolumes.Remove(processId);
+            }
+            else if (fallbackPercent.HasValue)
+            {
+                AdjustProcessVolume(processId, fallbackPercent.Value, rememberCurrentVolume: false);
+            }
+        }
+
+        private void RestoreAllMutedVolumesInternal()
+        {
+            var processIds = _mutedProcessVolumes.Keys.ToList();
+            foreach (var processId in processIds)
+            {
+                RestoreVolumeForProcessInternal(processId);
+            }
+        }
+
+        private bool AdjustProcessVolume(int processId, float targetVolumePercent, bool rememberCurrentVolume)
+        {
+            using var enumerator = new MMDeviceEnumerator();
             foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
             {
-                var sessionCollection = device.AudioSessionManager.Sessions;
-                for (int i = 0; i < sessionCollection.Count; i++)
+                using (device)
                 {
-                    var session = sessionCollection[i];
-                    if (session is AudioSessionControl audioSessionControl)
+                    var sessionCollection = device.AudioSessionManager.Sessions;
+                    for (int i = 0; i < sessionCollection.Count; i++)
                     {
-                        sessions.Add(audioSessionControl);
+                        var session = sessionCollection[i];
+                        if (session == null)
+                        {
+                            continue;
+                        }
+
+                        using (session)
+                        {
+                            if (session.GetProcessID != processId)
+                            {
+                                continue;
+                            }
+
+                            using var simpleVolume = session.SimpleAudioVolume;
+                            if (rememberCurrentVolume && !_mutedProcessVolumes.ContainsKey(processId))
+                            {
+                                _mutedProcessVolumes[processId] = simpleVolume.Volume;
+                            }
+
+                            var normalizedVolume = Math.Clamp(targetVolumePercent, 0f, 100f) / 100f;
+                            simpleVolume.Volume = normalizedVolume;
+                            return true;
+                        }
                     }
                 }
             }
 
-            foreach (var session in sessions)
-            {
-                if (session.GetProcessID == processId)
-                {
-                    session.SimpleAudioVolume.Volume = volume / 100.0f; // Convert volume to a value between 0.0 and 1.0
-                }
-            }
+            return false;
         }
 
 
@@ -653,6 +759,7 @@ namespace MultiWiz
                 IsRunning = true;
                 //uses a new thread
                 Thread loginThread = new Thread(() => login(Wait));
+                loginThread.IsBackground = true;
                 loginThread.Start();
 
             }
@@ -705,7 +812,9 @@ namespace MultiWiz
 
                 if(Process != null)
                 {
+                    var exitingProcessId = Process.Id;
                     Process.WaitForExit();
+                    _ = Parent.RestoreVolumeForProcessAsync(exitingProcessId);
                 }
                 IsRunning = false;
                 Process = null;
@@ -717,6 +826,7 @@ namespace MultiWiz
             {
                 if (Process != null)
                 {
+                    _ = Parent.RestoreVolumeForProcessAsync(Process.Id);
                     this.Process.Kill();
                     Process = null;
                     IsRunning = false;
