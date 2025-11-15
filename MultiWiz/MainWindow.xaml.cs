@@ -341,6 +341,24 @@ namespace MultiWiz
             saveInformation();
             closeAllAccounts();
             RestoreAllMutedVolumesAsync(runInBackground: false).GetAwaiter().GetResult();
+
+            // Clean up all cached audio sessions
+            lock (_audioSessionLock)
+            {
+                foreach (var session in _cachedAudioSessions.Values)
+                {
+                    try
+                    {
+                        session?.Dispose();
+                    }
+                    catch { }
+                }
+                _cachedAudioSessions.Clear();
+            }
+
+            // Dispose debounce timer
+            _focusDebounceTimer?.Dispose();
+
             saveSettings();
             base.OnClosing(e);
         }
@@ -530,6 +548,103 @@ namespace MultiWiz
 
         private readonly object _audioSessionLock = new();
         private readonly Dictionary<int, float> _mutedProcessVolumes = new();
+        private readonly Dictionary<int, AudioSessionControl> _cachedAudioSessions = new();
+
+        // Debouncing for rapid window switches
+        private System.Threading.Timer _focusDebounceTimer;
+        private account _pendingFocusAccount;
+        private readonly object _focusLock = new();
+        private const int FOCUS_DEBOUNCE_MS = 150;
+
+        /// <summary>
+        /// Cache the audio session for a process. Call this once when a process starts.
+        /// </summary>
+        public void CacheAudioSessionForProcess(int processId)
+        {
+            lock (_audioSessionLock)
+            {
+                try
+                {
+                    // If already cached, don't cache again
+                    if (_cachedAudioSessions.ContainsKey(processId))
+                    {
+                        return;
+                    }
+
+                    using var enumerator = new MMDeviceEnumerator();
+                    foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
+                    {
+                        using (device)
+                        {
+                            var sessionCollection = device.AudioSessionManager.Sessions;
+                            for (int i = 0; i < sessionCollection.Count; i++)
+                            {
+                                var session = sessionCollection[i];
+                                if (session?.GetProcessID == processId)
+                                {
+                                    // Cache the session (do NOT dispose it - we're keeping it)
+                                    _cachedAudioSessions[processId] = session;
+                                    Debug.WriteLine($"Cached audio session for process {processId}");
+                                    return;
+                                }
+                            }
+                        }
+                    }
+
+                    Debug.WriteLine($"No audio session found for process {processId}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to cache audio session for process {processId}: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Remove and dispose the cached audio session for a process
+        /// </summary>
+        public void RemoveCachedAudioSession(int processId)
+        {
+            lock (_audioSessionLock)
+            {
+                if (_cachedAudioSessions.TryGetValue(processId, out var session))
+                {
+                    try
+                    {
+                        session?.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error disposing audio session for process {processId}: {ex.Message}");
+                    }
+                    _cachedAudioSessions.Remove(processId);
+                    Debug.WriteLine($"Removed cached audio session for process {processId}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get cached audio session, or null if not available
+        /// </summary>
+        private AudioSessionControl GetCachedAudioSession(int processId)
+        {
+            if (_cachedAudioSessions.TryGetValue(processId, out var session))
+            {
+                try
+                {
+                    // Verify session is still valid by checking if we can access its properties
+                    _ = session.GetProcessID;
+                    return session;
+                }
+                catch
+                {
+                    // Session is no longer valid, remove it
+                    _cachedAudioSessions.Remove(processId);
+                    Debug.WriteLine($"Cached audio session for process {processId} is no longer valid");
+                }
+            }
+            return null;
+        }
 
         private void MuteApplication(Process process)
         {
@@ -554,6 +669,10 @@ namespace MultiWiz
             _ = RestoreVolumeForProcessAsync(process.Id);
         }
 
+        /// <summary>
+        /// Batched audio operation: unmute focused account and mute all others in a single pass
+        /// This is MUCH more efficient than individual operations
+        /// </summary>
         private void MuteOtherAccounts(account focusedAccount)
         {
             if (!MuteWhenNotInFocus)
@@ -561,11 +680,92 @@ namespace MultiWiz
                 return;
             }
 
-            foreach (var account in Accounts)
+            _ = Task.Run(() =>
             {
-                if (account != focusedAccount && account.Process != null)
+                lock (_audioSessionLock)
                 {
-                    MuteApplication(account.Process);
+                    try
+                    {
+                        foreach (var account in Accounts)
+                        {
+                            if (account.Process == null || account.Process.HasExited)
+                            {
+                                continue;
+                            }
+
+                            int processId = account.Process.Id;
+
+                            if (account == focusedAccount)
+                            {
+                                // Restore volume for focused account
+                                RestoreVolumeForProcessInternal(processId, UnmuteVolume);
+                            }
+                            else
+                            {
+                                // Mute other accounts
+                                MuteProcessInternal(processId);
+                            }
+                        }
+                        Debug.WriteLine($"Batched audio adjustment completed for {Accounts.Count} accounts");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Batched audio adjustment failed: {ex.Message}");
+                    }
+                }
+            });
+        }
+
+        /// <summary>
+        /// Debounced focus method to prevent rapid switches from stacking audio operations
+        /// </summary>
+        public void DebouncedFocusAccount(account acc)
+        {
+            lock (_focusLock)
+            {
+                _pendingFocusAccount = acc;
+
+                // Cancel existing timer if any
+                _focusDebounceTimer?.Dispose();
+
+                // Create new timer that will execute after debounce delay
+                _focusDebounceTimer = new System.Threading.Timer(
+                    callback: (state) =>
+                    {
+                        lock (_focusLock)
+                        {
+                            if (_pendingFocusAccount != null)
+                            {
+                                var accountToFocus = _pendingFocusAccount;
+                                _pendingFocusAccount = null;
+
+                                // Execute the actual focus operation
+                                ExecuteFocusInternal(accountToFocus);
+                            }
+                        }
+                    },
+                    state: null,
+                    dueTime: FOCUS_DEBOUNCE_MS,
+                    period: Timeout.Infinite
+                );
+            }
+        }
+
+        /// <summary>
+        /// Internal focus execution (called after debounce delay)
+        /// </summary>
+        private void ExecuteFocusInternal(account acc)
+        {
+            if (acc.Process != null && !acc.Process.HasExited)
+            {
+                try
+                {
+                    SetForegroundWindow(acc.Process.MainWindowHandle);
+                    MuteOtherAccounts(acc); // This now handles both unmute and mute in one batched operation
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Focus operation failed for {acc.Name}: {ex.Message}");
                 }
             }
         }
@@ -640,6 +840,33 @@ namespace MultiWiz
 
         private bool AdjustProcessVolume(int processId, float targetVolumePercent, bool rememberCurrentVolume)
         {
+            // Try to use cached session first (much faster!)
+            var cachedSession = GetCachedAudioSession(processId);
+            if (cachedSession != null)
+            {
+                try
+                {
+                    using var simpleVolume = cachedSession.SimpleAudioVolume;
+                    if (rememberCurrentVolume && !_mutedProcessVolumes.ContainsKey(processId))
+                    {
+                        _mutedProcessVolumes[processId] = simpleVolume.Volume;
+                    }
+
+                    var normalizedVolume = Math.Clamp(targetVolumePercent, 0f, 100f) / 100f;
+                    simpleVolume.Volume = normalizedVolume;
+                    Debug.WriteLine($"Adjusted volume for process {processId} using cached session");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to adjust volume using cached session for process {processId}: {ex.Message}");
+                    // Remove invalid cached session
+                    _cachedAudioSessions.Remove(processId);
+                }
+            }
+
+            // Fallback: enumerate if no cached session (slower, but works for edge cases)
+            Debug.WriteLine($"No cached session for process {processId}, falling back to enumeration");
             using var enumerator = new MMDeviceEnumerator();
             foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
             {
@@ -654,23 +881,29 @@ namespace MultiWiz
                             continue;
                         }
 
-                        using (session)
+                        // Don't dispose the session in the fallback path either
+                        if (session.GetProcessID != processId)
                         {
-                            if (session.GetProcessID != processId)
-                            {
-                                continue;
-                            }
-
-                            using var simpleVolume = session.SimpleAudioVolume;
-                            if (rememberCurrentVolume && !_mutedProcessVolumes.ContainsKey(processId))
-                            {
-                                _mutedProcessVolumes[processId] = simpleVolume.Volume;
-                            }
-
-                            var normalizedVolume = Math.Clamp(targetVolumePercent, 0f, 100f) / 100f;
-                            simpleVolume.Volume = normalizedVolume;
-                            return true;
+                            continue;
                         }
+
+                        using var simpleVolume = session.SimpleAudioVolume;
+                        if (rememberCurrentVolume && !_mutedProcessVolumes.ContainsKey(processId))
+                        {
+                            _mutedProcessVolumes[processId] = simpleVolume.Volume;
+                        }
+
+                        var normalizedVolume = Math.Clamp(targetVolumePercent, 0f, 100f) / 100f;
+                        simpleVolume.Volume = normalizedVolume;
+
+                        // Cache this session for future use
+                        if (!_cachedAudioSessions.ContainsKey(processId))
+                        {
+                            _cachedAudioSessions[processId] = session;
+                            Debug.WriteLine($"Cached audio session for process {processId} during fallback");
+                        }
+
+                        return true;
                     }
                 }
             }
@@ -802,6 +1035,11 @@ namespace MultiWiz
                             Parent.Dispatcher.BeginInvoke(new Action(Parent.RefocusMainWindow));
 
                             Debug.WriteLine($"Login sequence complete for {Name}");
+
+                            // Cache audio session after login completes and window is ready
+                            // Wait a bit for audio to initialize
+                            Thread.Sleep(500);
+                            Parent.CacheAudioSessionForProcess(Process.Id);
                         }
                     }
                     catch (Exception ex)
@@ -814,7 +1052,10 @@ namespace MultiWiz
                 {
                     var exitingProcessId = Process.Id;
                     Process.WaitForExit();
+
+                    // Clean up audio session and restore volume
                     _ = Parent.RestoreVolumeForProcessAsync(exitingProcessId);
+                    Parent.RemoveCachedAudioSession(exitingProcessId);
                 }
                 IsRunning = false;
                 Process = null;
@@ -826,19 +1067,20 @@ namespace MultiWiz
             {
                 if (Process != null)
                 {
-                    _ = Parent.RestoreVolumeForProcessAsync(Process.Id);
+                    var processId = Process.Id;
+                    _ = Parent.RestoreVolumeForProcessAsync(processId);
+                    Parent.RemoveCachedAudioSession(processId);
                     this.Process.Kill();
                     Process = null;
                     IsRunning = false;
                 }
             }
 
-            public void Focus() {                 
-                if (Process != null)
+            public void Focus() {
+                if (Process != null && !Process.HasExited)
                 {
-                    SetForegroundWindow(Process.MainWindowHandle);
-                    Parent.UnmuteApplication(Process);
-                    Parent.MuteOtherAccounts(this);
+                    // Use debounced focus to prevent audio operations from stacking
+                    Parent.DebouncedFocusAccount(this);
                 }
             }
         }
