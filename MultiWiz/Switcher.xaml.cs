@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -70,7 +70,7 @@ namespace MultiWiz
 
         private void AddButtons()
         {
-            foreach (account acc in mainWindow.Accounts)
+            foreach (Account acc in mainWindow.Accounts)
             {
                 if(acc.IsRunning == true)
                 {
@@ -95,7 +95,7 @@ namespace MultiWiz
         {
             Button btn = (Button)sender;
             Mark(btn);
-            account acc = (account)btn.Tag;
+            Account acc = (Account)btn.Tag;
             acc.Focus();
         }
 

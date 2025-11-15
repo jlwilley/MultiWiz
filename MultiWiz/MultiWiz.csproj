@@ -31,7 +31,7 @@
   </ItemGroup>
 
 	<PropertyGroup>
-		<Version>3.3.4</Version>
+		<Version>3.3.5</Version>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 	</PropertyGroup>
 

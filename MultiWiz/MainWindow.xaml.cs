@@ -1,4 +1,4 @@
-﻿using MaterialDesignThemes.Wpf;
+using MaterialDesignThemes.Wpf;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -136,7 +136,7 @@ namespace MultiWiz
     /// </summary>
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         // Method to raise the PropertyChanged event
         protected void OnPropertyChanged(string propertyName)
@@ -175,8 +175,8 @@ namespace MultiWiz
         string path = ".\\config.txt";
         private string settingsPath = ".\\settings.txt";
 
-        public ObservableCollection<account> Accounts;
-        private account? _editingAccount = null;
+        public ObservableCollection<Account> Accounts;
+        private Account? _editingAccount = null;
 
         // Windows API constants for messaging
         private const uint WM_CHAR = 0x0102;
@@ -329,7 +329,7 @@ namespace MultiWiz
             // Check for updates on startup
             _ = UpdateMyApp();
 
-            Accounts = new ObservableCollection<account>();
+            Accounts = new ObservableCollection<Account>();
             loadInformation();
             loadSettings();
             AccountView.ItemsSource = Accounts;
@@ -365,19 +365,19 @@ namespace MultiWiz
 
         public void closeAllAccounts()
         {
-              foreach(account a in Accounts)
+              foreach(Account a in Accounts)
             {
                 a.StopWizard();
             }
         }
 
-        public void addAccount(account a)
+        public void addAccount(Account a)
         {
             Accounts.Add(a);
             saveInformation();
         }
 
-        public void deleteAccount(account a)
+        public void deleteAccount(Account a)
         {
             Accounts.Remove(a);
             saveInformation();
@@ -549,28 +549,61 @@ namespace MultiWiz
         private readonly object _audioSessionLock = new();
         private readonly Dictionary<int, float> _mutedProcessVolumes = new();
         private readonly Dictionary<int, AudioSessionControl> _cachedAudioSessions = new();
+        private readonly Dictionary<int, DateTime> _lastAudioSessionCacheAttempt = new();
+        private static readonly TimeSpan AudioSessionCacheRetryInterval = TimeSpan.FromMilliseconds(750);
 
         // Debouncing for rapid window switches
         private System.Threading.Timer _focusDebounceTimer;
-        private account _pendingFocusAccount;
+        private Account _pendingFocusAccount;
         private readonly object _focusLock = new();
         private const int FOCUS_DEBOUNCE_MS = 150;
 
-        /// <summary>
-        /// Cache the audio session for a process. Call this once when a process starts.
-        /// </summary>
-        public void CacheAudioSessionForProcess(int processId)
+        private void EnsureAudioSessionsCached(IEnumerable<int> processIds, bool forceRetry = false)
         {
+            if (processIds == null)
+            {
+                return;
+            }
+
+            var targets = processIds
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+
+            if (targets.Count == 0)
+            {
+                return;
+            }
+
             lock (_audioSessionLock)
             {
-                try
+                var pending = new HashSet<int>();
+
+                foreach (var processId in targets)
                 {
-                    // If already cached, don't cache again
                     if (_cachedAudioSessions.ContainsKey(processId))
                     {
-                        return;
+                        continue;
                     }
 
+                    if (!forceRetry &&
+                        _lastAudioSessionCacheAttempt.TryGetValue(processId, out var lastAttempt) &&
+                        (DateTime.UtcNow - lastAttempt) < AudioSessionCacheRetryInterval)
+                    {
+                        continue;
+                    }
+
+                    pending.Add(processId);
+                    _lastAudioSessionCacheAttempt[processId] = DateTime.UtcNow;
+                }
+
+                if (pending.Count == 0)
+                {
+                    return;
+                }
+
+                try
+                {
                     using var enumerator = new MMDeviceEnumerator();
                     foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
                     {
@@ -580,24 +613,62 @@ namespace MultiWiz
                             for (int i = 0; i < sessionCollection.Count; i++)
                             {
                                 var session = sessionCollection[i];
-                                if (session?.GetProcessID == processId)
+                                if (session == null)
                                 {
-                                    // Cache the session (do NOT dispose it - we're keeping it)
-                                    _cachedAudioSessions[processId] = session;
-                                    Debug.WriteLine($"Cached audio session for process {processId}");
+                                    continue;
+                                }
+
+                                int processId;
+                                try
+                                {
+                                    uint rawProcessId = session.GetProcessID;
+                                    if (rawProcessId == 0 || rawProcessId > int.MaxValue)
+                                    {
+                                        continue;
+                                    }
+                                    processId = unchecked((int)rawProcessId);
+                                }
+                                catch
+                                {
+                                    continue;
+                                }
+
+                                if (!pending.Contains(processId))
+                                {
+                                    continue;
+                                }
+
+                                _cachedAudioSessions[processId] = session;
+                                _lastAudioSessionCacheAttempt.Remove(processId);
+                                Debug.WriteLine($"Cached audio session for process {processId}");
+
+                                pending.Remove(processId);
+                                if (pending.Count == 0)
+                                {
                                     return;
                                 }
                             }
                         }
                     }
 
-                    Debug.WriteLine($"No audio session found for process {processId}");
+                    foreach (var processId in pending)
+                    {
+                        Debug.WriteLine($"No audio session found for process {processId}");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Failed to cache audio session for process {processId}: {ex.Message}");
+                    Debug.WriteLine($"Failed to cache audio sessions: {ex.Message}");
                 }
             }
+        }
+
+        /// <summary>
+        /// Cache the audio session for a process. Call this once when a process starts.
+        /// </summary>
+        public void CacheAudioSessionForProcess(int processId)
+        {
+            EnsureAudioSessionsCached(new[] { processId }, forceRetry: true);
         }
 
         /// <summary>
@@ -618,6 +689,7 @@ namespace MultiWiz
                         Debug.WriteLine($"Error disposing audio session for process {processId}: {ex.Message}");
                     }
                     _cachedAudioSessions.Remove(processId);
+                    _lastAudioSessionCacheAttempt.Remove(processId);
                     Debug.WriteLine($"Removed cached audio session for process {processId}");
                 }
             }
@@ -654,6 +726,7 @@ namespace MultiWiz
             }
 
             Debug.WriteLine($"Muting {process.Id}");
+            EnsureAudioSessionsCached(new[] { process.Id });
             _ = QueueVolumeAdjustmentAsync(() => MuteProcessInternal(process.Id));
         }
 
@@ -670,34 +743,41 @@ namespace MultiWiz
         }
 
         /// <summary>
-        /// Batched audio operation: unmute focused account and mute all others in a single pass
+        /// Batched audio operation: unmute focused Account and mute all others in a single pass
         /// This is MUCH more efficient than individual operations
         /// </summary>
-        private void MuteOtherAccounts(account focusedAccount)
+        private void MuteOtherAccounts(Account focusedAccount)
         {
             if (!MuteWhenNotInFocus)
             {
                 return;
             }
 
+            var activeAccounts = Accounts
+                .Where(acc => acc.Process != null && !acc.Process.HasExited)
+                .Select(acc => (Account: acc, ProcessId: acc.Process!.Id))
+                .ToList();
+
+            if (activeAccounts.Count == 0)
+            {
+                return;
+            }
+
             _ = Task.Run(() =>
             {
+                EnsureAudioSessionsCached(activeAccounts.Select(info => info.ProcessId));
+
                 lock (_audioSessionLock)
                 {
                     try
                     {
-                        foreach (var account in Accounts)
+                        foreach (var entry in activeAccounts)
                         {
-                            if (account.Process == null || account.Process.HasExited)
-                            {
-                                continue;
-                            }
+                            int processId = entry.ProcessId;
 
-                            int processId = account.Process.Id;
-
-                            if (account == focusedAccount)
+                            if (entry.Account == focusedAccount)
                             {
-                                // Restore volume for focused account
+                                // Restore volume for focused Account
                                 RestoreVolumeForProcessInternal(processId, UnmuteVolume);
                             }
                             else
@@ -706,7 +786,7 @@ namespace MultiWiz
                                 MuteProcessInternal(processId);
                             }
                         }
-                        Debug.WriteLine($"Batched audio adjustment completed for {Accounts.Count} accounts");
+                        Debug.WriteLine($"Batched audio adjustment completed for {activeAccounts.Count} accounts");
                     }
                     catch (Exception ex)
                     {
@@ -719,7 +799,7 @@ namespace MultiWiz
         /// <summary>
         /// Debounced focus method to prevent rapid switches from stacking audio operations
         /// </summary>
-        public void DebouncedFocusAccount(account acc)
+        public void DebouncedFocusAccount(Account acc)
         {
             lock (_focusLock)
             {
@@ -754,7 +834,7 @@ namespace MultiWiz
         /// <summary>
         /// Internal focus execution (called after debounce delay)
         /// </summary>
-        private void ExecuteFocusInternal(account acc)
+        private void ExecuteFocusInternal(Account acc)
         {
             if (acc.Process != null && !acc.Process.HasExited)
             {
@@ -818,6 +898,8 @@ namespace MultiWiz
 
         private void RestoreVolumeForProcessInternal(int processId, float? fallbackPercent = null)
         {
+            EnsureAudioSessionsCached(new[] { processId });
+
             if (_mutedProcessVolumes.TryGetValue(processId, out var cachedVolume))
             {
                 AdjustProcessVolume(processId, cachedVolume * 100f, rememberCurrentVolume: false);
@@ -832,6 +914,7 @@ namespace MultiWiz
         private void RestoreAllMutedVolumesInternal()
         {
             var processIds = _mutedProcessVolumes.Keys.ToList();
+            EnsureAudioSessionsCached(processIds);
             foreach (var processId in processIds)
             {
                 RestoreVolumeForProcessInternal(processId);
@@ -912,11 +995,11 @@ namespace MultiWiz
         }
 
 
-        //account class
-        public class account : INotifyPropertyChanged
+        //Account class
+        public class Account : INotifyPropertyChanged
         {
 
-            public event PropertyChangedEventHandler PropertyChanged;
+            public event PropertyChangedEventHandler? PropertyChanged;
 
             private void NotifyPropertyChanged([CallerMemberName] String propertyName = "")
             {
@@ -968,7 +1051,7 @@ namespace MultiWiz
 
 
 
-            public account(string name, string username, string password, MainWindow parent, GameServer server = GameServer.Wizard101_US)
+            public Account(string name, string username, string password, MainWindow parent, GameServer server = GameServer.Wizard101_US)
             {
                 Name = name;
                 Username = username;
@@ -979,7 +1062,7 @@ namespace MultiWiz
                 Server = server;
             }
 
-            //starts the game for associated account
+            //starts the game for associated Account
             public void StartWizard(int Wait)
             {
                 ProcessStartInfo info = new ProcessStartInfo();
@@ -1062,7 +1145,7 @@ namespace MultiWiz
             }
 
 
-            //stops the process with the current account
+            //stops the process with the current Account
             public void StopWizard()
             {
                 if (Process != null)
@@ -1109,7 +1192,7 @@ namespace MultiWiz
                                 server = parsedServer;
                             }
 
-                            Accounts.Add(new account(info[0], username, password, this, server));
+                            Accounts.Add(new Account(info[0], username, password, this, server));
                         }
                     } catch (Exception ex)
                     {
@@ -1127,7 +1210,7 @@ namespace MultiWiz
         {
             using (StreamWriter sw = File.CreateText(path))
             {
-                foreach (account a in Accounts)
+                foreach (Account a in Accounts)
                 {
                     // Encrypt username and password before saving
                     string encryptedUsername = EncryptString(a.Username);
@@ -1182,14 +1265,14 @@ namespace MultiWiz
             // Get password from PasswordBox
             string password = PasswordTextBox.Password;
 
-            account a = new account(AccountNameTextBox.Text, UsernameTextBox.Text, password, this, selectedServer);
+            Account a = new Account(AccountNameTextBox.Text, UsernameTextBox.Text, password, this, selectedServer);
             addAccount(a);
             CloseAddAccountDialog();
         }
 
         private void FocusButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button button && button.Tag is account acc)
+            if (sender is Button button && button.Tag is Account acc)
             {
                 acc.Focus();
             }
@@ -1197,16 +1280,16 @@ namespace MultiWiz
 
         private void LaunchStopButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button button && button.Tag is account acc)
+            if (sender is Button button && button.Tag is Account acc)
             {
                 if (acc.IsRunning)
                 {
-                    // Stop the account
+                    // Stop the Account
                     acc.StopWizard();
                 }
                 else
                 {
-                    // Launch the account
+                    // Launch the Account
                     acc.StartWizard(waitInSeconds);
                 }
             }
@@ -1214,11 +1297,11 @@ namespace MultiWiz
 
         private void EditAccountButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button button && button.Tag is account acc)
+            if (sender is Button button && button.Tag is Account acc)
             {
                 _editingAccount = acc;
 
-                // Populate edit dialog with current account data
+                // Populate edit dialog with current Account data
                 EditAccountNameTextBox.Text = acc.Name;
                 EditUsernameTextBox.Text = acc.Username;
                 EditPasswordTextBox.Password = acc.Password;
@@ -1243,7 +1326,7 @@ namespace MultiWiz
                     selectedServer = server;
                 }
 
-                // Update account properties
+                // Update Account properties
                 _editingAccount.Name = EditAccountNameTextBox.Text;
                 _editingAccount.Username = EditUsernameTextBox.Text;
                 _editingAccount.Password = EditPasswordTextBox.Password;
@@ -1280,11 +1363,11 @@ namespace MultiWiz
         private void DeleteButton_Click(object sender, RoutedEventArgs e)
         {
             ArrayList accounts = new ArrayList();
-            foreach(account a in AccountView.SelectedItems)
+            foreach(Account a in AccountView.SelectedItems)
             {
                 accounts.Add(a);
             }
-            foreach (account a in accounts)
+            foreach (Account a in accounts)
             {
                 Accounts.Remove(a);
             }
@@ -1301,7 +1384,7 @@ namespace MultiWiz
 
         private void PlayButton_Click(object sender, RoutedEventArgs e)
         {           
-            foreach(account a in AccountView.SelectedItems)
+            foreach(Account a in AccountView.SelectedItems)
             {
                 a.StartWizard(waitInSeconds);
             }
