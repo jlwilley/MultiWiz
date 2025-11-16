@@ -178,6 +178,29 @@ namespace MultiWiz
         public ObservableCollection<Account> Accounts;
         private Account? _editingAccount = null;
 
+        // New services for multi-instance broadcasting and tiling
+        private MultiWiz.Services.InputBroadcaster? _inputBroadcaster;
+        private TilingWindow? _tilingWindow;
+        private bool _isBroadcastEnabled = false;
+        public bool IsBroadcastEnabled
+        {
+            get => _isBroadcastEnabled;
+            private set
+            {
+                _isBroadcastEnabled = value;
+                OnPropertyChanged(nameof(IsBroadcastEnabled));
+            }
+        }
+
+        // Settings restoration fields
+        private bool _shouldRestoreBroadcastState = false;
+        private bool _shouldShowTilingWindow = false;
+        private Services.TilingLayout _savedTilingLayout = Services.TilingLayout.Grid2x2;
+        private double _savedTilingLeft = 100;
+        private double _savedTilingTop = 100;
+        private double _savedTilingWidth = 1200;
+        private double _savedTilingHeight = 800;
+
         // Windows API constants for messaging
         private const uint WM_CHAR = 0x0102;
         private const uint WM_KEYDOWN = 0x0100;
@@ -334,6 +357,127 @@ namespace MultiWiz
             loadSettings();
             AccountView.ItemsSource = Accounts;
 
+            // Initialize InputBroadcaster
+            _inputBroadcaster = new MultiWiz.Services.InputBroadcaster(GetRunningGameWindowHandles);
+            _inputBroadcaster.BroadcastStateChanged += OnBroadcastStateChanged;
+            try
+            {
+                _inputBroadcaster.Initialize();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to initialize input broadcaster: {ex.Message}");
+                MessageBox.Show($"Input broadcasting feature unavailable: {ex.Message}", "Warning",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+
+            // Initialize TilingWindow (but don't show it yet)
+            _tilingWindow = new TilingWindow();
+            _tilingWindow.SetWindowHandleProvider(
+                () => GetRunningGameWindowHandles().ToList(),
+                (hwnd) => FocusGameWindow(hwnd)
+            );
+
+            // Register hotkeys
+            RegisterHotkeys();
+
+            // Restore saved state
+            RestoreSavedState();
+        }
+
+        /// <summary>
+        /// Restores saved broadcast and tiling state from settings
+        /// </summary>
+        private void RestoreSavedState()
+        {
+            // Restore broadcast state
+            if (_shouldRestoreBroadcastState && _inputBroadcaster != null)
+            {
+                _inputBroadcaster.EnableBroadcast();
+            }
+
+            // Restore tiling window position and layout
+            if (_tilingWindow != null)
+            {
+                _tilingWindow.Left = _savedTilingLeft;
+                _tilingWindow.Top = _savedTilingTop;
+                _tilingWindow.Width = _savedTilingWidth;
+                _tilingWindow.Height = _savedTilingHeight;
+                _tilingWindow.SetLayout(_savedTilingLayout);
+
+                if (_shouldShowTilingWindow)
+                {
+                    _tilingWindow.Show();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Registers global hotkeys for broadcast and tiling features
+        /// </summary>
+        private void RegisterHotkeys()
+        {
+            try
+            {
+                // Ctrl+B: Toggle broadcast mode
+                NHotkey.Wpf.HotkeyManager.Current.AddOrReplace("ToggleBroadcast", Key.B, ModifierKeys.Control, OnToggleBroadcastHotkey);
+
+                // Ctrl+T: Toggle tiling window
+                NHotkey.Wpf.HotkeyManager.Current.AddOrReplace("ToggleTiling", Key.T, ModifierKeys.Control, OnToggleTilingHotkey);
+
+                // Ctrl+1 through Ctrl+6: Switch tiling layouts
+                NHotkey.Wpf.HotkeyManager.Current.AddOrReplace("Layout1", Key.D1, ModifierKeys.Control, (s, e) => SetTilingLayout(Services.TilingLayout.Single));
+                NHotkey.Wpf.HotkeyManager.Current.AddOrReplace("Layout2", Key.D2, ModifierKeys.Control, (s, e) => SetTilingLayout(Services.TilingLayout.SideBySide));
+                NHotkey.Wpf.HotkeyManager.Current.AddOrReplace("Layout3", Key.D3, ModifierKeys.Control, (s, e) => SetTilingLayout(Services.TilingLayout.Grid2x2));
+                NHotkey.Wpf.HotkeyManager.Current.AddOrReplace("Layout4", Key.D4, ModifierKeys.Control, (s, e) => SetTilingLayout(Services.TilingLayout.ThreeColumn));
+                NHotkey.Wpf.HotkeyManager.Current.AddOrReplace("Layout5", Key.D5, ModifierKeys.Control, (s, e) => SetTilingLayout(Services.TilingLayout.PrimarySecondary));
+                NHotkey.Wpf.HotkeyManager.Current.AddOrReplace("Layout6", Key.D6, ModifierKeys.Control, (s, e) => SetTilingLayout(Services.TilingLayout.Sidebar));
+
+                // Ctrl+Tab: Cycle to next window in tiling view
+                NHotkey.Wpf.HotkeyManager.Current.AddOrReplace("CycleNext", Key.Tab, ModifierKeys.Control, OnCycleNextHotkey);
+
+                // Ctrl+Shift+Tab: Cycle to previous window
+                NHotkey.Wpf.HotkeyManager.Current.AddOrReplace("CyclePrev", Key.Tab, ModifierKeys.Control | ModifierKeys.Shift, OnCyclePrevHotkey);
+
+                // Ctrl+1 through Ctrl+9: Direct window selection in tiling view
+                // These are now registered locally in TilingWindow, not globally
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to register hotkeys: {ex.Message}");
+            }
+        }
+
+        private void OnToggleBroadcastHotkey(object? sender, NHotkey.HotkeyEventArgs e)
+        {
+            ToggleBroadcast();
+            e.Handled = true;
+        }
+
+        private void OnToggleTilingHotkey(object? sender, NHotkey.HotkeyEventArgs e)
+        {
+            ToggleTilingWindow();
+            e.Handled = true;
+        }
+
+        private void OnCycleNextHotkey(object? sender, NHotkey.HotkeyEventArgs e)
+        {
+            _tilingWindow?.CycleNextWindow();
+            e.Handled = true;
+        }
+
+        private void OnCyclePrevHotkey(object? sender, NHotkey.HotkeyEventArgs e)
+        {
+            _tilingWindow?.CyclePreviousWindow();
+            e.Handled = true;
+        }
+
+        private void SetTilingLayout(Services.TilingLayout layout)
+        {
+            if (_tilingWindow != null)
+            {
+                _tilingWindow.SetLayout(layout);
+            }
         }
 
         protected override void OnClosing( CancelEventArgs e)
@@ -358,6 +502,10 @@ namespace MultiWiz
 
             // Dispose debounce timer
             _focusDebounceTimer?.Dispose();
+
+            // Clean up input broadcaster and tiling window
+            _inputBroadcaster?.Dispose();
+            _tilingWindow?.Close();
 
             saveSettings();
             base.OnClosing(e);
@@ -429,6 +577,53 @@ namespace MultiWiz
                                 SwitcherOpacity = opacity;
                             }
                         }
+                        else if (key == "BroadcastEnabled")
+                        {
+                            if (bool.TryParse(value, out bool enabled) && enabled)
+                            {
+                                // Will be applied after InputBroadcaster is initialized
+                                _shouldRestoreBroadcastState = true;
+                            }
+                        }
+                        else if (key == "TilingWindowVisible")
+                        {
+                            _shouldShowTilingWindow = bool.TryParse(value, out bool visible) && visible;
+                        }
+                        else if (key == "TilingLayout")
+                        {
+                            if (Enum.TryParse<Services.TilingLayout>(value, out var layout))
+                            {
+                                _savedTilingLayout = layout;
+                            }
+                        }
+                        else if (key == "TilingWindowLeft")
+                        {
+                            if (double.TryParse(value, out double left))
+                            {
+                                _savedTilingLeft = left;
+                            }
+                        }
+                        else if (key == "TilingWindowTop")
+                        {
+                            if (double.TryParse(value, out double top))
+                            {
+                                _savedTilingTop = top;
+                            }
+                        }
+                        else if (key == "TilingWindowWidth")
+                        {
+                            if (double.TryParse(value, out double width))
+                            {
+                                _savedTilingWidth = width;
+                            }
+                        }
+                        else if (key == "TilingWindowHeight")
+                        {
+                            if (double.TryParse(value, out double height))
+                            {
+                                _savedTilingHeight = height;
+                            }
+                        }
                     }
                 }
             }
@@ -450,6 +645,18 @@ namespace MultiWiz
                     writer.WriteLine($"_muteWhenNotInFocus={_muteWhenNotInFocus}");
                     writer.WriteLine($"_unmuteVolume={_unmuteVolume}");
                     writer.WriteLine($"_switcherOpacity={_switcherOpacity}");
+
+                    // New broadcast and tiling settings
+                    writer.WriteLine($"BroadcastEnabled={IsBroadcastEnabled}");
+                    if (_tilingWindow != null)
+                    {
+                        writer.WriteLine($"TilingWindowVisible={_tilingWindow.IsVisible}");
+                        writer.WriteLine($"TilingLayout={_tilingWindow.CurrentLayout}");
+                        writer.WriteLine($"TilingWindowLeft={_tilingWindow.Left}");
+                        writer.WriteLine($"TilingWindowTop={_tilingWindow.Top}");
+                        writer.WriteLine($"TilingWindowWidth={_tilingWindow.Width}");
+                        writer.WriteLine($"TilingWindowHeight={_tilingWindow.Height}");
+                    }
                 }
             }
             catch (Exception ex)
@@ -1078,6 +1285,8 @@ namespace MultiWiz
                 loginThread.IsBackground = true;
                 loginThread.Start();
 
+                // Refresh tiling window to show new game instance
+                Parent.RefreshTilingWindow();
             }
 
             public void login(int Wait)
@@ -1156,6 +1365,9 @@ namespace MultiWiz
                     this.Process.Kill();
                     Process = null;
                     IsRunning = false;
+
+                    // Refresh tiling window to remove closed game instance
+                    Parent.RefreshTilingWindow();
                 }
             }
 
@@ -1396,5 +1608,121 @@ namespace MultiWiz
             switcher.Show();
             this.Hide();
         }
+
+        #region Multi-Instance Broadcasting and Tiling
+
+        /// <summary>
+        /// Gets window handles of all running game instances
+        /// </summary>
+        private IEnumerable<IntPtr> GetRunningGameWindowHandles()
+        {
+            return Accounts
+                .Where(acc => acc.Process != null && !acc.Process.HasExited)
+                .Select(acc => acc.Process!.MainWindowHandle)
+                .Where(hwnd => hwnd != IntPtr.Zero);
+        }
+
+        /// <summary>
+        /// Toggles broadcast mode on/off
+        /// </summary>
+        public void ToggleBroadcast()
+        {
+            _inputBroadcaster?.ToggleBroadcast();
+        }
+
+        /// <summary>
+        /// Toggles the tiling window visibility
+        /// </summary>
+        public void ToggleTilingWindow()
+        {
+            if (_tilingWindow == null) return;
+
+            if (_tilingWindow.IsVisible)
+            {
+                _tilingWindow.Hide();
+            }
+            else
+            {
+                _tilingWindow.Show();
+                _tilingWindow.RefreshLayout();
+            }
+        }
+
+        /// <summary>
+        /// Event handler for broadcast state changes
+        /// </summary>
+        private void OnBroadcastStateChanged(object? sender, bool isEnabled)
+        {
+            IsBroadcastEnabled = isEnabled;
+            Debug.WriteLine($"Broadcast mode is now {(isEnabled ? "ENABLED" : "DISABLED")}");
+
+            // Update UI on the UI thread
+            Dispatcher.Invoke(() =>
+            {
+                if (BroadcastIcon != null && BroadcastText != null)
+                {
+                    BroadcastIcon.Kind = isEnabled ? PackIconKind.Broadcast : PackIconKind.BroadcastOff;
+                    BroadcastText.Text = isEnabled ? "Broadcast: ON" : "Broadcast: OFF";
+
+                    // Change button color to indicate state
+                    if (BroadcastToggleButton != null)
+                    {
+                        BroadcastToggleButton.Background = isEnabled
+                            ? new SolidColorBrush(Color.FromRgb(0xa6, 0xe3, 0xa1)) // Green
+                            : null; // Default
+                    }
+                }
+            });
+        }
+
+        /// <summary>
+        /// Broadcast toggle button click handler
+        /// </summary>
+        private void BroadcastToggleButton_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleBroadcast();
+        }
+
+        /// <summary>
+        /// Tiling view button click handler
+        /// </summary>
+        private void TilingViewButton_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleTilingWindow();
+        }
+
+        /// <summary>
+        /// Called when a window is "focused" in the tiling view - handles audio but does NOT focus the actual window
+        /// </summary>
+        private void FocusGameWindow(IntPtr windowHandle)
+        {
+            // Don't focus the actual game window - we're using input forwarding in the tiling view
+            // Just handle audio muting for the focused account
+            if (windowHandle != IntPtr.Zero && Win32.DwmInterop.IsWindow(windowHandle))
+            {
+                var account = Accounts.FirstOrDefault(acc =>
+                    acc.Process != null &&
+                    !acc.Process.HasExited &&
+                    acc.Process.MainWindowHandle == windowHandle);
+
+                if (account != null)
+                {
+                    MuteOtherAccounts(account);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Refreshes the tiling window layout (call when games are launched/closed)
+        /// </summary>
+        public void RefreshTilingWindow()
+        {
+            if (_tilingWindow != null && _tilingWindow.IsVisible)
+            {
+                _tilingWindow.RefreshLayout();
+            }
+        }
+
+        #endregion
     }
 }

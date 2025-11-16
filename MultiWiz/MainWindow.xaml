@@ -76,6 +76,30 @@
                         </StackPanel>
                     </Button>
 
+                    <!-- Broadcast Toggle Button -->
+                    <Button x:Name="BroadcastToggleButton"
+                            Style="{StaticResource MaterialDesignRaisedButton}"
+                            Margin="0,0,8,0"
+                            Click="BroadcastToggleButton_Click"
+                            ToolTip="Toggle Input Broadcasting (Ctrl+B)">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon x:Name="BroadcastIcon" Kind="BroadcastOff"
+                                                     VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="BroadcastText" Text="Broadcast: OFF" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Tiling View Button -->
+                    <Button Style="{StaticResource MaterialDesignRaisedButton}"
+                            Margin="0,0,8,0"
+                            Click="TilingViewButton_Click"
+                            ToolTip="Open Tiling View (Ctrl+T)">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ViewGrid" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Tiling View" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
                     <!-- Settings Button -->
                     <Button Style="{StaticResource MaterialDesignIconButton}"
                             Width="40" Height="40"
