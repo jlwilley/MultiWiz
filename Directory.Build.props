@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <!-- Overridden by CI from the git tag (e.g. -p:Version=4.1.0-beta.1). -->
+    <Version>4.0.0-dev</Version>
+    <Authors>jlwilley</Authors>
+    <Company>MultiWiz</Company>
+    <Product>MultiWiz</Product>
+    <Copyright>Copyright (c) jlwilley and MultiWiz contributors</Copyright>
+    <RepositoryUrl>https://github.com/jlwilley/MultiWiz</RepositoryUrl>
+    <IsPackable>false</IsPackable>
+    <!-- Lets 'dotnet build' of the -windows projects restore on non-Windows hosts. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+</Project>

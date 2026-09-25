@@ -15,6 +15,12 @@ The ground rules:
 - **Every module is replaceable.** The UI talks to Core services, Core talks to the OS through
   interfaces in `MultiWiz.Core.Platform`, and only `MultiWiz.Platform.Windows` touches Win32.
 
+## Project files
+
+`global.json`, `Directory.Build.props`, `Directory.Packages.props` (all package versions, pinned
+from primary sources on 2026-09-25), `MultiWiz.slnx`, and every `.csproj` already exist. Add packages
+only through `Directory.Packages.props`, and say so in your report.
+
 ## Solution layout
 
 ```
@@ -192,7 +198,8 @@ and timestamp so tests can use `FakeTimeProvider`.
 - Nothing game-specific yet; offsets and type data will come from the owner's own database later.
 
 ### DI
-- `ServiceCollectionExtensions.AddMultiWizCore(this IServiceCollection services, AppPaths paths)`
+- `CoreServiceCollectionExtensions.AddMultiWizCore(this IServiceCollection services, AppPaths paths)`
+  (namespace `MultiWiz.Core`)
   registers every Core service above as singletons (interfaces + concrete where the UI needs the
   concrete type), `TimeProvider.System`, and `paths`. Platform services are registered separately.
 
@@ -279,14 +286,15 @@ generated from `NativeMethods.txt`), `NAudio.Wasapi` for audio sessions,
   `GetModuleBaseName` + `GetModuleInformation` (these need `PROCESS_QUERY_INFORMATION | PROCESS_VM_READ`
   on older systems; if `QUERY_LIMITED` fails for module enumeration, reopen a second handle with
   `PROCESS_QUERY_INFORMATION | PROCESS_VM_READ` — still read-only).
-- `ServiceCollectionExtensions.AddWindowsPlatform(this IServiceCollection)` registers all of the
-  above as singletons against their Core interfaces.
+- `WindowsPlatformServiceCollectionExtensions.AddWindowsPlatform(this IServiceCollection)` (namespace
+  `MultiWiz.Platform.Windows`) registers all of the above as singletons against their Core interfaces.
 
 ## MultiWiz.App (Avalonia 12)
 
 `WinExe`, `AssemblyName` **MultiWiz** (so the executable stays `MultiWiz.exe`, matching v3 and the
-Velopack package id), app icon `Assets/multiwiz.ico` (copy of the v3 magic-wand icon), app manifest
-with PerMonitorV2 DPI awareness and `asInvoker`.
+Velopack package id), app icon `Assets/multiwiz.ico` (the v3 magic-wand icon), app manifest with
+`asInvoker` and no `dpiAwareness` (Avalonia sets Per-Monitor V2 at runtime; a manifest value would
+override it).
 
 - `Program.Main` (`[STAThread]`): `VelopackApp.Build().Run()` first; single instance via a named
   `Mutex` (`Local\MultiWiz.SingleInstance`); a second launch signals the first through a named
@@ -334,7 +342,9 @@ with PerMonitorV2 DPI awareness and `asInvoker`.
   positioned at the top-left of the game's client area using `IWindowEvents.TrackWindow`, hidden while
   the game is minimized, closed when the session ends. This is the pipeline future overlays (live stats,
   damage planner) will reuse, so keep an `OverlayWindowBase` class that handles transparency, styling,
-  tracking and positioning in physical pixels.
+  tracking and positioning in physical pixels. Avalonia rewrites `GWL_EXSTYLE` whenever some window
+  properties change, so the base class must also register `Win32Properties.AddWindowStylesCallback`
+  to re-add the overlay extended styles (and apply them once immediately via the styler).
 - **Tray icon**: Show MultiWiz, Switcher, Command Center, Launch team ▸ (teams), Stop all clients, Quit.
 - **Updates** (`UpdateService`): Velopack `UpdateManager` with `GithubSource("https://github.com/jlwilley/MultiWiz", null, prerelease)`.
   Stable channel uses the default channel (`win`) so v3 installs can update into v4. Beta channel

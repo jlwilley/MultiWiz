@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MultiWiz.Core/MultiWiz.Core.csproj" />
+    <Project Path="src/MultiWiz.Platform.Windows/MultiWiz.Platform.Windows.csproj" />
+    <Project Path="src/MultiWiz.App/MultiWiz.App.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MultiWiz.Core.Tests/MultiWiz.Core.Tests.csproj" />
+  </Folder>
+</Solution>
