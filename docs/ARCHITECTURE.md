@@ -145,6 +145,16 @@ and timestamp so tests can use `FakeTimeProvider`.
   the next; the login gate already serializes typing), await all. `Stop` kills the process and lets the
   exit watcher clean up. Publish every state change through `SessionChanged` (outside locks).
 - Sessions are keyed by account id; launching an account that is already alive returns its session.
+- External clients: every 3 s (a `TimeProvider` timer; the manager is `IDisposable`) while
+  `GeneralSettings.DetectExternalClients` is on, `IWindowService.FindGameWindows()` lists the game-class
+  windows; a process no session tracks, at least 10 s old (so a client MultiWiz is starting is never
+  raced), whose `IProcessLauncher.TryAttach` reports a client process name and start time, becomes a
+  Running session with `IsExternal = true`, a `Label` ("Wizard101 client 1", lowest free number per
+  game), `Game`, and a synthetic `AccountId` derived from pid + start time. It is watched for exit like
+  any other session but never written to `running-clients.json`; Retype login refuses it. Turning the
+  setting off drops external sessions without closing them. `ISessionLinking.LinkExternal(externalId,
+  accountId)` re-keys one to an idle account of the same game (publishing Exited for the old id, then
+  the account's snapshot) and records it for re-adoption.
 
 ### Switching
 - `ClientSwitcher : IClientSwitcher`. Maintains order as described on the interface. Listens to
@@ -196,6 +206,23 @@ and timestamp so tests can use `FakeTimeProvider`.
   `TryReadString(this IProcessMemory, nint address, int maxBytes, out string value)` (UTF-8, stops at NUL),
   `TryFollowPointerChain(this IProcessMemory, nint baseAddress, ReadOnlySpan<int> offsets, out nint address)`.
 - Nothing game-specific yet; offsets and type data will come from the owner's own database later.
+
+### Patching (game file downloads)
+- `IGameDownloader` / `GameDownloader` download Wizard101's files from KingsIsle's patch server,
+  verified by KingsIsle's size and CRC (`KiCrc32`: reflected 0xEDB88320, initial 0, no final XOR; not
+  the standard CRC-32). `PatchServerClient` does the TCP handshake with `patch.us.wizard101.com:12500`
+  (`PatchProtocol`: 0xF00D framing, SessionOffer/SessionAccept, "latest file list v2" = service 8,
+  order 2) behind `IPatchConnectionFactory`; `FileListParser` reads the DML tables of
+  LatestFileList.bin; `PatchPaths` rejects any path that escapes the install.
+- `PlanAsync(install, FullGame | Update)` checks files (size, then CRC; a size+mtime+CRC cache lives in
+  `state\patch-cache-<installId>.json`); `DownloadAsync` fetches 4 files at a time over one shared
+  `HttpClient` (User-Agent "KingsIsle Patcher"), writes each to a temp file next to its target, verifies
+  it, then moves it into place; 3 attempts per file; locked files are reported, not retried; after a
+  clean run it updates `PatchInfo\` and `LocalPackagesList.txt` like the official patcher.
+  `CheckForUpdateAsync` compares only the Base package (the "out of date" banner).
+- Standalone Wizard101 only: Steam installs and Pirate101 are reported as unsupported by `GetSupport`.
+  The App (`GameFilesViewModel`, `GameFilesService`) refuses to download while any client or the
+  official launcher runs.
 
 ### DI
 - `CoreServiceCollectionExtensions.AddMultiWizCore(this IServiceCollection services, AppPaths paths)`
@@ -315,10 +342,13 @@ override it).
     dialog (display name, username, password with reveal, game, realm filtered by game, install
     "Automatic" or a specific one, accent color, notes); empty state with "Import from MultiWiz 3" when a
     v3 config exists.
+    When clients started outside MultiWiz are running, a "Clients started outside MultiWiz: N" card lists
+    them (label, process id, Focus) with a "Link to account…" picker of idle accounts of the same game.
   - **Teams** — list of teams; editor with name, ordered account slots (add/remove/reorder), layout
     picker (built-ins with a small preview drawing), "resize windows" toggle; "Launch team",
     "Arrange now", "Set as active" (switcher order).
-  - **Settings** — General (theme, tray behavior, close games on exit, updates + channel + "Check now"),
+  - **Settings** — General (theme, tray behavior, close games on exit, detect games started outside
+    MultiWiz, updates + channel + "Check now"),
     Login (auto-login, ready delay, timeout, keystroke delay, stagger, refocus), Audio (enabled, focused /
     background volume sliders), Switcher (opacity, show on team launch, don't steal focus), Overlays
     (name badges), Performance (efficiency mode, lower priority), Hotkeys (one row per action with a

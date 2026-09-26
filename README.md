@@ -34,12 +34,19 @@ channel, the newest stable download is MultiWiz 3.x, and v4 builds appear as pre
   is running and signed in before it launches.
 - **Install discovery:** finds the default KingsIsle folders, installs listed in Windows, and every
   Steam library. You can also add a game folder by hand.
+- **Download full game:** fetch every Wizard101 file up front from KingsIsle's own patch server, so
+  zones load without "download as you play". MultiWiz also warns when your client files are out of
+  date and can update them. See [Download full game](#download-full-game).
 - **Teams and layouts:** group accounts into teams with a fixed slot order and launch a whole team with
   one click. Windows can be arranged side by side, in a 2×2 or 3×2 grid, as main + 3, or one per
   monitor, with multi-monitor and DPI awareness.
 - **Switcher:** a compact, always-on-top list of your running clients. Click one to focus it; the
   switcher doesn't take focus away from the game.
 - **Command Center:** a window of live thumbnails of every client. Click a tile to jump to that client.
+- **Games started outside MultiWiz:** clients you open with the official launcher (or that were
+  already running) are picked up automatically and get switcher slots, hotkeys, Command Center tiles,
+  audio switching and name badges too. Link one to a saved account on the Accounts page to show its
+  name there. Turn this off in Settings → General.
 - **Global hotkeys:** focus a slot, cycle clients, or toggle the switcher, Command Center and name
   badges. Every hotkey can be rebound, and combinations another app already owns are flagged.
 - **Audio:** the focused client plays at full volume while background clients are muted or turned
@@ -122,7 +129,40 @@ character from being typed anywhere; MultiWiz warns when you pick one.
 | Show MultiWiz | `Ctrl+Alt+F11` |
 | Show / hide name badges | `Ctrl+Alt+F12` |
 
-Slots follow the active team's order first, then any other running clients in account-list order.
+Slots follow the active team's order first, then any other running clients in account-list order,
+then clients started outside MultiWiz (such as "Wizard101 client 1").
+
+## Download full game
+
+A standalone (KingsIsle installer) copy of Wizard101 downloads most zones the first time you visit
+them, which makes loading screens slow. **Settings → Games → Game files** can download the complete
+game in one go instead:
+
+1. Close every Wizard101 client and the official launcher.
+2. Click **Check**. MultiWiz asks KingsIsle's patch server for the current file list and checks the
+   files you already have (the first check reads every existing file, so it can take a few minutes;
+   later checks are quick). It then shows how many files and gigabytes are missing and how much space
+   is free on the game's drive.
+3. Click **Download**. Files are downloaded four at a time with progress, speed and a Cancel button.
+
+Things to know:
+
+- **Disk space:** the complete game is much larger than a fresh "download as you play" install:
+  expect tens of gigabytes. MultiWiz refuses to start when the drive is too small.
+- **Exactly KingsIsle's files:** every file comes from KingsIsle's patch server (the same server and
+  file list the official patcher uses) and is checked against KingsIsle's own size and CRC before it
+  replaces anything. MultiWiz never changes game code. Each file is written to a temporary file next to
+  the old one and swapped in only after it verifies, so a cancelled or failed download leaves no
+  half-written files. Failed files are retried three times, then listed so you can run it again.
+- **Bookkeeping:** after a clean run MultiWiz updates KingsIsle's `PatchInfo` folder and
+  `LocalPackagesList.txt` the same way the official patcher does, so the client knows the zones are
+  there.
+- **Out-of-date warning:** MultiWiz quietly compares the core client files with the server and shows
+  "Your Wizard101 install is out of date" with an **Update game files** button when they differ.
+  **Update only** downloads just what the official launcher would update before playing.
+- **Not for Steam or Pirate101:** Steam already installs every file and keeps it up to date.
+  Pirate101 isn't supported yet because its patch server hasn't been verified. Only the North
+  American (KingsIsle) version of Wizard101 is supported.
 
 ## Where your data lives
 
@@ -133,11 +173,14 @@ Slots follow the active team's order first, then any other running clients in ac
 | Logs (kept 7 days) | `%LocalAppData%\MultiWiz\logs` |
 | The app itself | `%LocalAppData%\MultiWiz` |
 | MultiWiz 3 data (read once for import) | `%AppData%\MultiWiz\config.txt`, `settings.txt` |
+| Game file check cache | `%LocalAppData%\MultiWiz\state\patch-cache-<install>.json` |
 
 Credential Manager protects your passwords with your Windows sign-in. Any program running as your
 Windows user can read them, so don't save accounts on a shared Windows account. MultiWiz has no
-telemetry. The only network requests it makes itself are update checks and downloads from GitHub
-Releases, which you can turn off in **Settings → General**.
+telemetry. The network requests it makes itself are update checks and downloads from GitHub
+Releases, which you can turn off in **Settings → General**, and, for standalone Wizard101 installs,
+a check of KingsIsle's patch server (the current revision and file list) plus any game file
+downloads you start in **Settings → Games**.
 
 ## Fair play
 
@@ -152,6 +195,8 @@ the game.
 - draw its own overlay windows (switcher, name badges) on top of the game
 - for Steam installs, write Steam's standard `steam_appid.txt` in the game's `Bin` folder, so a Steam
   copy can be started directly
+- when you ask it to, download KingsIsle's own game files from KingsIsle's patch server into the game
+  folder, byte for byte and verified by KingsIsle's CRC, like the official patcher
 
 **MultiWiz never:**
 - writes to game memory, injects code or DLLs, or hooks game functions
@@ -229,4 +274,4 @@ KingsIsle asks for MultiWiz to be taken down, it will be.
 
 ## License
 
-[MIT](LICENSE) © 2023-2026 jlwilley
+[MIT](LICENSE) © 2023-2026 jlwilley. Third-party code and notices: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

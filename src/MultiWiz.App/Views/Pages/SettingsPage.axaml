@@ -474,6 +474,73 @@
               </StackPanel>
             </Border>
 
+            <Border Classes="card" IsVisible="{Binding GameFiles.HasItems}">
+              <StackPanel Spacing="12">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="h3" Text="Game files" />
+                  <TextBlock Classes="caption" TextWrapping="Wrap"
+                             Text="Wizard101 normally downloads zones while you play, which makes loading slow. Download the full game once from KingsIsle's own servers, checked file by file against KingsIsle's size and CRC. It takes tens of gigabytes; Check shows the exact size and your free space. Close the game first." />
+                </StackPanel>
+
+                <ItemsControl ItemsSource="{Binding GameFiles.Items}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:GameFilesItemViewModel">
+                      <Border Background="{DynamicResource CtpMantleBrush}" CornerRadius="8" Padding="12,10" Margin="0,0,0,6">
+                        <StackPanel Spacing="8">
+                          <StackPanel Spacing="2">
+                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                            <TextBlock Classes="caption" Text="{Binding RootPath}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                          </StackPanel>
+
+                          <Border Background="{DynamicResource CtpYellowSoftBrush}" CornerRadius="8" Padding="12,8"
+                                  IsVisible="{Binding IsOutdated}">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                              <PathIcon Data="{StaticResource IconWarning}" Foreground="{DynamicResource CtpYellowBrush}" VerticalAlignment="Center" />
+                              <TextBlock Grid.Column="1" Margin="10,0,12,0" TextWrapping="Wrap" VerticalAlignment="Center"
+                                         Text="{Binding OutdatedText}" />
+                              <Button Grid.Column="2" Classes="primary" VerticalAlignment="Center"
+                                      Content="Update game files"
+                                      Command="{Binding UpdateCommand}" />
+                            </Grid>
+                          </Border>
+
+                          <TextBlock TextWrapping="Wrap" Text="{Binding StatusText}"
+                                     Foreground="{DynamicResource CtpRedBrush}"
+                                     IsVisible="{Binding IsError}" />
+                          <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding StatusText}"
+                                     IsVisible="{Binding !IsError}" />
+
+                          <StackPanel Spacing="4" IsVisible="{Binding IsBusy}">
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressValue, Mode=OneWay}" />
+                            <TextBlock Classes="caption" Text="{Binding ProgressText}" />
+                          </StackPanel>
+
+                          <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsSupported}">
+                            <Button Command="{Binding CheckCommand}" IsVisible="{Binding IsIdle}">
+                              <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" />
+                                <TextBlock Text="Check" />
+                              </StackPanel>
+                            </Button>
+                            <Button Classes="primary" IsVisible="{Binding IsIdle}"
+                                    Content="{Binding DownloadButtonText}"
+                                    Command="{Binding DownloadCommand}" />
+                            <Button IsVisible="{Binding IsIdle}"
+                                    Content="Update only"
+                                    ToolTip.Tip="Download only what the official launcher would update before playing"
+                                    Command="{Binding UpdateCommand}" />
+                            <Button IsVisible="{Binding IsBusy}"
+                                    Content="Cancel"
+                                    Command="{Binding CancelCommand}" />
+                          </StackPanel>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
             <Border Classes="card">
               <StackPanel Spacing="8">
                 <TextBlock Classes="h3" Text="Preferred install" />

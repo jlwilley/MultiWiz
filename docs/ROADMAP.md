@@ -22,6 +22,8 @@ in place.
 - **Realms:** Wizard101 US, EU and Test Realm, Pirate101 US, plus custom host/port realms.
 - **Switcher:** a compact, always-on-top list of running clients that doesn't steal focus.
 - **Command Center:** live DWM thumbnails of every client; click one to focus it.
+- **External clients:** clients started with the official launcher, or running before MultiWiz, are
+  detected and managed like launched ones (slots, audio, badges), and can be linked to an account.
 - **Global hotkeys:** fully rebindable, with registration failures flagged.
 - **Audio:** the focused client plays at full volume while background clients are muted or ducked.
   Original volumes are restored on exit.
@@ -33,6 +35,11 @@ in place.
   signed when Azure Artifact Signing is configured.
 - **v3 import:** accounts, passwords and settings come across on first start, and the v3 files are
   left untouched.
+- **Download full game:** Settings → Games → Game files downloads every Wizard101 file from
+  KingsIsle's patch server (verified by KingsIsle's size and CRC), so zones don't download while you
+  play. Also warns when the core client files are out of date and updates them. Standalone Wizard101
+  (North America) only: Steam installs are already complete, and Pirate101's patch server is
+  unverified.
 
 ## v4.x: quality of life
 
@@ -40,7 +47,9 @@ in place.
   screen, then offer to relaunch it and log it back in, with a per-account opt-in.
 - **Stale client and patch detection:** detect a pending game patch or outdated client files before a
   multi-launch, and ask the user to run the official launcher once instead of starting clients that
-  will fail.
+  will fail. (The check itself exists: `IGameDownloader.CheckForUpdateAsync` powers the "out of date"
+  banner in Settings → Games; wiring it into launches is still to do.)
+- **Pirate101 and EU game file downloads:** once their patch servers are verified.
 - **Discord Rich Presence:** opt-in, showing the game and client count and nothing account-specific.
 - **Per-account timers:** gardening, pet training and hatching, and crafting cooldowns, with tray
   notifications when each is ready.

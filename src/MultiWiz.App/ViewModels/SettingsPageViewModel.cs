@@ -56,6 +56,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
         ClientActions actions,
         StatusService status,
         UpdateService updates,
+        GameFilesViewModel gameFiles,
         ILogger<SettingsPageViewModel> logger)
     {
         _settings = settings;
@@ -67,6 +68,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
         _status = status;
         _logger = logger;
         Updates = updates;
+        GameFiles = gameFiles;
 
         HotkeyRows = Enum.GetValues<HotkeyAction>().Select(action => new HotkeyRowViewModel(this, action)).ToArray();
         PreferredInstalls = GameOption.All
@@ -89,6 +91,9 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
     }
 
     public UpdateService Updates { get; }
+
+    /// <summary>Settings → Games → Game files (full download / update per install).</summary>
+    public GameFilesViewModel GameFiles { get; }
 
     public string VersionText => $"MultiWiz {Updates.CurrentVersion}";
 
@@ -233,6 +238,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
         _installs.Changed -= OnInstallsChanged;
         _hotkeys.RegistrationsChanged -= OnHotkeyRegistrationsChanged;
         _saveDebouncer.Dispose();
+        GameFiles.CancelAll();
     }
 
     /// <summary>Starts capturing a new combination for <paramref name="row"/>. Global hotkeys pause meanwhile.</summary>
@@ -667,6 +673,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
         }
 
         HasInstalls = InstallItems.Count > 0;
+        GameFiles.Refresh(installs);
         RefreshPreferredInstalls();
     }
 

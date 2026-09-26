@@ -66,6 +66,7 @@ public sealed class AppHost : IDisposable
         services.AddSingleton<UpdateService>();
         services.AddSingleton<ClientActions>();
         services.AddSingleton<LegacyImportService>();
+        services.AddSingleton<GameFilesService>();
         services.AddSingleton<OverlayManager>();
 
         // View models.
@@ -74,6 +75,7 @@ public sealed class AppHost : IDisposable
         services.AddSingleton<AccountsPageViewModel>();
         services.AddSingleton<TeamsPageViewModel>();
         services.AddSingleton<SettingsPageViewModel>();
+        services.AddSingleton<GameFilesViewModel>();
         services.AddSingleton<AboutPageViewModel>();
         services.AddSingleton<SwitcherViewModel>();
         services.AddSingleton<CommandCenterViewModel>();
