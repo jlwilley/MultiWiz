@@ -1,0 +1,66 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MultiWiz.App.ViewModels"
+        x:Class="MultiWiz.App.Views.Dialogs.MessageDialog"
+        x:DataType="vm:MessageDialogViewModel"
+        Title="MultiWiz"
+        Width="480"
+        SizeToContent="Height"
+        CanResize="False"
+        CanMinimize="False"
+        CanMaximize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource CtpBaseBrush}"
+        Foreground="{DynamicResource CtpTextBrush}">
+
+  <Window.Styles>
+    <Style Selector="Border.badge">
+      <Setter Property="Background" Value="{DynamicResource CtpMauveSoftBrush}" />
+    </Style>
+    <Style Selector="Border.badge PathIcon">
+      <Setter Property="Foreground" Value="{DynamicResource CtpMauveBrush}" />
+    </Style>
+    <Style Selector="Border.badge.problem">
+      <Setter Property="Background" Value="{DynamicResource CtpRedSoftBrush}" />
+    </Style>
+    <Style Selector="Border.badge.problem PathIcon">
+      <Setter Property="Foreground" Value="{DynamicResource CtpRedBrush}" />
+    </Style>
+  </Window.Styles>
+
+  <StackPanel Margin="24" Spacing="18">
+    <Grid ColumnDefinitions="Auto,*">
+      <Border Classes="badge" Classes.problem="{Binding IsProblem}"
+              Width="40" Height="40" CornerRadius="12" VerticalAlignment="Top">
+        <Panel>
+          <PathIcon Data="{StaticResource IconInfo}" Width="20" Height="20" IsVisible="{Binding IsInformational}" />
+          <PathIcon Data="{StaticResource IconWarning}" Width="20" Height="20" IsVisible="{Binding IsProblem}" />
+        </Panel>
+      </Border>
+      <StackPanel Grid.Column="1" Margin="14,0,0,0" Spacing="6">
+        <TextBlock Classes="h2" Text="{Binding Title}" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Foreground="{DynamicResource CtpSubtextBrush}" />
+      </StackPanel>
+    </Grid>
+
+    <Border IsVisible="{Binding HasDetails}"
+            Background="{DynamicResource CtpMantleBrush}" CornerRadius="8" Padding="12" MaxHeight="180">
+      <ScrollViewer>
+        <SelectableTextBlock Text="{Binding Details}" TextWrapping="Wrap" FontSize="12"
+                             FontFamily="Consolas, Cascadia Mono, monospace" />
+      </ScrollViewer>
+    </Border>
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button MinWidth="96" Content="{Binding CancelText}"
+              IsVisible="{Binding HasCancel}"
+              Command="{Binding CancelCommand}" />
+      <Button MinWidth="96" IsDefault="True"
+              Classes.primary="{Binding !IsDestructive}"
+              Classes.danger="{Binding IsDestructive}"
+              Content="{Binding ConfirmText}"
+              Command="{Binding ConfirmCommand}" />
+    </StackPanel>
+  </StackPanel>
+</Window>

@@ -1,0 +1,95 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MultiWiz.App.ViewModels"
+        xmlns:conv="using:MultiWiz.App.Converters"
+        x:Class="MultiWiz.App.Views.CommandCenterWindow"
+        x:DataType="vm:CommandCenterViewModel"
+        Title="MultiWiz"
+        Width="1100" Height="700"
+        MinWidth="480" MinHeight="320"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource CtpCrustBrush}"
+        Foreground="{DynamicResource CtpTextBrush}">
+
+  <Window.Styles>
+    <Style Selector="Button.tile">
+      <Setter Property="Margin" Value="6" />
+      <Setter Property="Padding" Value="8" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Background" Value="{DynamicResource CtpBaseBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource CtpSurface0Brush}" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="VerticalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.tile:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource CtpSurface0Brush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource CtpSurface2Brush}" />
+    </Style>
+    <Style Selector="Button.tile.current">
+      <Setter Property="BorderBrush" Value="{DynamicResource CtpMauveBrush}" />
+    </Style>
+    <Style Selector="Button.tile.current:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="{DynamicResource CtpMauveBrush}" />
+    </Style>
+  </Window.Styles>
+
+  <DockPanel Margin="16">
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="6,0,6,10">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <PathIcon Data="{StaticResource IconCommandCenter}" Foreground="{DynamicResource CtpMauveBrush}" />
+        <TextBlock Classes="h3" Text="Command Center" VerticalAlignment="Center" />
+        <Border Classes="chip">
+          <TextBlock Text="{Binding Summary}" />
+        </Border>
+      </StackPanel>
+      <TextBlock Grid.Column="1" Classes="caption" VerticalAlignment="Center"
+                 Text="Live previews. Click one to switch to that client." />
+    </Grid>
+
+    <Panel>
+      <ItemsControl ItemsSource="{Binding Tiles}" IsVisible="{Binding !IsEmpty}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid x:DataType="vm:CommandCenterViewModel" Columns="{Binding Columns}" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:ThumbnailTileViewModel">
+            <Button Classes="tile" Classes.current="{Binding IsCurrent}"
+                    Command="{Binding FocusCommand}"
+                    AutomationProperties.Name="{Binding Name}">
+              <DockPanel>
+                <Grid DockPanel.Dock="Bottom" ColumnDefinitions="Auto,Auto,*" Margin="2,8,2,0">
+                  <Border Classes="slot">
+                    <TextBlock Text="{Binding Slot}" />
+                  </Border>
+                  <Border Grid.Column="1" Classes="dot" Margin="10,0"
+                          Background="{Binding AccentColor, Converter={x:Static conv:AppConverters.AccentBrush}}" />
+                  <TextBlock Grid.Column="2" VerticalAlignment="Center" FontWeight="SemiBold"
+                             TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
+                </Grid>
+                <!-- The live DWM thumbnail is drawn over this placeholder by the window. -->
+                <Border Classes="thumb-host" CornerRadius="6" Background="{DynamicResource CtpMantleBrush}">
+                  <TextBlock Classes="caption" HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Text="Preview unavailable" />
+                </Border>
+              </DockPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <StackPanel IsVisible="{Binding IsEmpty}" Spacing="10"
+                  HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380">
+        <PathIcon Data="{StaticResource IconCommandCenter}" Width="36" Height="36"
+                  Foreground="{DynamicResource CtpOverlayBrush}" HorizontalAlignment="Center" />
+        <TextBlock Classes="h3" Text="No clients running" HorizontalAlignment="Center" />
+        <TextBlock Classes="caption" TextAlignment="Center"
+                   Text="Launch accounts or a team from MultiWiz and a live preview of each client shows up here." />
+      </StackPanel>
+    </Panel>
+  </DockPanel>
+</Window>

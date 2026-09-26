@@ -1,65 +1,282 @@
-name: Build and Release
+name: Release
 
+# v4.1.0        -> stable: Velopack's default "win" channel (the feed MultiWiz 3.x installs read), normal GitHub release.
+# v4.1.0-beta.1 -> beta:   "beta" channel, GitHub pre-release.
+# See docs/RELEASING.md.
 on:
   push:
-    branches:
-      - master
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - '.gitattributes'
+    tags:
+      - 'v*'
+
+# Nothing gets write access or the OIDC token by default. Restore, build and test run third-party code (MSBuild
+# targets, analyzers and source generators from NuGet packages, test dependencies), so they run in the `build` job,
+# which can neither request the Azure signing token nor write to the repository. Only the `release` job, which runs
+# no restore, build or test, gets both.
+permissions:
+  contents: read
+
+# One release at a time, so each run builds its delta from the release before it.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  REPO_URL: https://github.com/${{ github.repository }}
+  APP_PROJECT: src/MultiWiz.App/MultiWiz.App.csproj
+  APP_ICON: src/MultiWiz.App/Assets/multiwiz.ico
+  # Package id and executable must never change: existing installs update only into the same package id.
+  PACK_ID: MultiWiz
+  PACK_TITLE: MultiWiz
+  PACK_AUTHORS: jlwilley
+  MAIN_EXE: MultiWiz.exe
+  PUBLISH_DIR: publish
+  RELEASES_DIR: releases
 
 jobs:
-  build-and-release:
+  build:
+    name: Build and test
     runs-on: windows-latest
+    # Read-only and outside the `release` environment: no OIDC token, no write access, no environment variables.
     permissions:
-      contents: write
+      contents: read
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      beta: ${{ steps.version.outputs.beta }}
+    defaults:
+      run:
+        shell: pwsh
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # No later step uses git; don't leave the token in .git/config during build and test.
+          persist-credentials: false
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
+      - name: Determine version and channel
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          # vpk requires a strict three-part SemVer 2 version (ASCII digits, no leading zeros); anything after '-'
+          # marks a beta.
+          $number = '(?:0|[1-9][0-9]*)'
+          $identifier = '(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+          $pattern = "^v($number\.$number\.$number(?:-$identifier(?:\.$identifier)*)?)$"
+          $match = [regex]::Match($env:TAG, $pattern)
+          if (-not $match.Success) {
+            Write-Output "::error title=Invalid release tag::'$env:TAG' is not v<major>.<minor>.<patch>[-prerelease] in SemVer 2 form, for example v4.1.0 or v4.1.0-beta.1."
+            exit 1
+          }
+          $version = $match.Groups[1].Value
+          $beta = if ($version.Contains('-')) { 'true' } else { 'false' }
 
-    - name: Restore dependencies
-      run: dotnet restore
+          Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_VERSION=$version"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value @("version=$version", "beta=$beta")
+          Write-Output "Releasing MultiWiz $version (beta: $beta) from tag $env:TAG"
 
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
 
-    - name: Publish
-      run: dotnet publish MultiWiz\MultiWiz.csproj --configuration Release --output ./publish --no-build
+      - name: Restore
+        run: dotnet restore MultiWiz.slnx
 
-    - name: Install Velopack
-      run: dotnet tool install -g vpk
+      - name: Build
+        run: dotnet build MultiWiz.slnx -c Release --no-restore "-p:Version=$env:RELEASE_VERSION"
 
-    - name: Get version from project
-      id: get_version
-      shell: pwsh
-      run: |
-        [xml]$csproj = Get-Content MultiWiz\MultiWiz.csproj
-        $version = ($csproj.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1).Version.Trim()
-        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-        echo "Version: $version"
+      - name: Test
+        run: dotnet test --solution MultiWiz.slnx -c Release --no-build
 
-    - name: Package with Velopack
-      run: |
-        vpk pack --packId MultiWiz --packVersion ${{ steps.get_version.outputs.VERSION }} --packDir ./publish --mainExe MultiWiz.exe --outputDir ./Deployment/VelopackReleases
+      - name: Publish app (win-x64, self-contained)
+        run: dotnet publish $env:APP_PROJECT -c Release -r win-x64 --self-contained -o $env:PUBLISH_DIR "-p:Version=$env:RELEASE_VERSION"
 
-    - name: Create Release and Upload Assets
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: v${{ steps.get_version.outputs.VERSION }}
-        name: MultiWiz v${{ steps.get_version.outputs.VERSION }}
-        draft: false
-        prerelease: false
-        files: |
-          ./Deployment/VelopackReleases/*
-        fail_on_unmatched_files: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # The published files are the only thing that crosses into the signing job.
+      - name: Upload app build
+        uses: actions/upload-artifact@v7
+        with:
+          name: MultiWiz-win-x64
+          path: ${{ env.PUBLISH_DIR }}
+          if-no-files-found: error
+          # Outlives a pending `release` environment approval (those expire after 30 days).
+          retention-days: 30
+
+  release:
+    name: Sign and publish release
+    needs: build
+    runs-on: windows-latest
+    # The Azure federated credential trusts this environment (restrict it to v* tags in the repository settings).
+    environment: release
+    # The only job that can request the OIDC token azure/login exchanges for the signing identity. It runs no
+    # restore, build or test; the only third-party code here is the actions below and vpk (pinned).
+    permissions:
+      contents: write # create the GitHub release and upload its assets
+      id-token: write # OIDC token for azure/login (code signing)
+    timeout-minutes: 30
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_VERSION: ${{ needs.build.outputs.version }}
+      RELEASE_BETA: ${{ needs.build.outputs.beta }}
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Check version
+        run: |
+          # The build job validated the tag and applied the stable-release gate. Make sure its outputs arrived and
+          # still match the tag, so a missing output can never publish a beta to the stable "win" channel.
+          $version = "$env:RELEASE_VERSION"
+          $beta = if ($version.Contains('-')) { 'true' } else { 'false' }
+          if ($version -eq '' -or "$env:RELEASE_TAG" -cne "v$version" -or "$env:RELEASE_BETA" -cne $beta) {
+            Write-Output "::error title=Version mismatch::The build job reported version '$version' (beta: '$env:RELEASE_BETA') for tag '$env:RELEASE_TAG'."
+            exit 1
+          }
+
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # Only for global.json, the vpk tool manifest, the icon and the release notes. No step uses git.
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Download app build
+        uses: actions/download-artifact@v8
+        with:
+          name: MultiWiz-win-x64
+          path: ${{ env.PUBLISH_DIR }}
+
+      - name: Install vpk (pinned in .config/dotnet-tools.json)
+        run: dotnet tool restore
+
+      - name: Download previous release (delta base)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          $vpkArgs = @('download', 'github', '--repoUrl', $env:REPO_URL, '--token', $env:GITHUB_TOKEN, '--outputDir', $env:RELEASES_DIR)
+          if ($env:RELEASE_BETA -eq 'true') { $vpkArgs += @('--channel', 'beta', '--pre') }
+          dotnet vpk @vpkArgs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          # A delta across major versions (3.x -> 4.0 is a full rewrite) is as large as the full package and only adds
+          # risk for old clients, so drop an older-major base and let clients download the full package instead.
+          $major = [int]$env:RELEASE_VERSION.Split('.')[0]
+          $pattern = '^' + [regex]::Escape($env:PACK_ID) + '-(\d+)\.'
+          Get-ChildItem -Path $env:RELEASES_DIR -Filter '*-full.nupkg' -ErrorAction SilentlyContinue | ForEach-Object {
+            $base = [regex]::Match($_.Name, $pattern)
+            if ($base.Success -and [int]$base.Groups[1].Value -ne $major) {
+              Write-Output "Skipping delta from $($_.Name): different major version."
+              Remove-Item -LiteralPath $_.FullName
+            }
+          }
+
+      - name: Check code signing configuration
+        id: signing
+        env:
+          CFG_AZURE_SIGNING_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          CFG_AZURE_SIGNING_ACCOUNT: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          CFG_AZURE_SIGNING_PROFILE: ${{ vars.AZURE_SIGNING_PROFILE }}
+          CFG_AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          CFG_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          CFG_AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          $names = 'AZURE_SIGNING_ENDPOINT', 'AZURE_SIGNING_ACCOUNT', 'AZURE_SIGNING_PROFILE',
+                   'AZURE_CLIENT_ID', 'AZURE_TENANT_ID', 'AZURE_SUBSCRIPTION_ID'
+          $missing = @($names | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable("CFG_$_")) })
+          if ($missing.Count -eq 0) {
+            Add-Content -Path $env:GITHUB_OUTPUT -Value 'enabled=true'
+            Write-Output 'Azure Artifact Signing is configured; binaries and installers will be signed.'
+          } else {
+            Add-Content -Path $env:GITHUB_OUTPUT -Value 'enabled=false'
+            $message = "This release is UNSIGNED because these repository variables are not set: $($missing -join ', '). See docs/RELEASING.md."
+            Write-Output "::warning title=Unsigned release::$message"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value @('## Unsigned release', '', $message, '')
+          }
+
+      - name: Azure login (OIDC)
+        if: steps.signing.outputs.enabled == 'true'
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Write Artifact Signing metadata
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          SIGN_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          SIGN_ACCOUNT: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          SIGN_PROFILE: ${{ vars.AZURE_SIGNING_PROFILE }}
+        run: |
+          # Every credential except AzureCliCredential (signed in by azure/login) is excluded so DefaultAzureCredential
+          # does not probe the others on the runner.
+          $metadata = [ordered]@{
+            Endpoint               = $env:SIGN_ENDPOINT.Trim()
+            CodeSigningAccountName = $env:SIGN_ACCOUNT.Trim()
+            CertificateProfileName = $env:SIGN_PROFILE.Trim()
+            CorrelationId          = "multiwiz-$env:GITHUB_RUN_ID"
+            ExcludeCredentials     = @(
+              'EnvironmentCredential', 'WorkloadIdentityCredential', 'ManagedIdentityCredential',
+              'SharedTokenCacheCredential', 'VisualStudioCredential', 'VisualStudioCodeCredential',
+              'AzurePowerShellCredential', 'AzureDeveloperCliCredential', 'InteractiveBrowserCredential')
+          }
+          $path = Join-Path $env:RUNNER_TEMP 'metadata.json'
+          # The signing dlib expects UTF-8 without a BOM.
+          [System.IO.File]::WriteAllText($path, ($metadata | ConvertTo-Json -Depth 3), [System.Text.UTF8Encoding]::new($false))
+          Add-Content -Path $env:GITHUB_ENV -Value "SIGN_METADATA=$path"
+
+      - name: Package with Velopack
+        run: |
+          $vpkArgs = @(
+            'pack',
+            '--packId', $env:PACK_ID,
+            '--packVersion', $env:RELEASE_VERSION,
+            '--packDir', $env:PUBLISH_DIR,
+            '--mainExe', $env:MAIN_EXE,
+            '--packTitle', $env:PACK_TITLE,
+            '--packAuthors', $env:PACK_AUTHORS,
+            '--icon', $env:APP_ICON,
+            '--outputDir', $env:RELEASES_DIR)
+          # Stable omits --channel so it stays on the default "win" channel.
+          if ($env:RELEASE_BETA -eq 'true') { $vpkArgs += @('--channel', 'beta') }
+          $notes = "docs/release-notes/$env:RELEASE_VERSION.md"
+          if (Test-Path -LiteralPath $notes) { $vpkArgs += @('--releaseNotes', $notes) }
+          if ($env:SIGN_METADATA) { $vpkArgs += @('--azureTrustedSignFile', $env:SIGN_METADATA) }
+          dotnet vpk @vpkArgs
+
+      - name: Publish GitHub release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          $vpkArgs = @(
+            'upload', 'github',
+            '--repoUrl', $env:REPO_URL,
+            '--token', $env:GITHUB_TOKEN,
+            '--outputDir', $env:RELEASES_DIR,
+            '--tag', $env:RELEASE_TAG,
+            '--releaseName', "MultiWiz $env:RELEASE_VERSION",
+            '--targetCommitish', $env:GITHUB_SHA,
+            '--publish')
+          if ($env:RELEASE_BETA -eq 'true') { $vpkArgs += @('--channel', 'beta', '--pre') }
+          dotnet vpk @vpkArgs
+
+      - name: Summary
+        env:
+          SIGNED: ${{ steps.signing.outputs.enabled }}
+        run: |
+          $channel = if ($env:RELEASE_BETA -eq 'true') { 'beta (GitHub pre-release)' } else { 'stable (default "win" channel)' }
+          $signed = if ($env:SIGNED -eq 'true') { 'yes (Azure Artifact Signing)' } else { 'no' }
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value @(
+            "## MultiWiz $env:RELEASE_VERSION",
+            '',
+            "- Channel: $channel",
+            "- Signed: $signed",
+            "- Release: $env:REPO_URL/releases/tag/$env:RELEASE_TAG")
