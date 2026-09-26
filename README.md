@@ -103,22 +103,24 @@ passwords removed, delete your accounts in MultiWiz first.
 4. **Teams → New team:** add accounts in slot order, pick a layout, then **Launch team**. Launching a
    team makes it the active team, and its slot order drives the hotkeys and the switcher.
 5. Jump between clients with `Alt+1` … `Alt+8` or cycle with `` Alt+` ``. Toggle the switcher with
-   `Ctrl+Alt+S`.
+   `Ctrl+Alt+F9`.
 
 ## Hotkeys
 
 All hotkeys are global and can be changed in **Settings → Hotkeys**. Click a box and press a
-combination. Esc cancels, and Backspace clears the hotkey.
+combination. Esc cancels, and Backspace clears the hotkey. Windows treats AltGr as `Ctrl+Alt`, so
+on keyboards with an AltGr key a `Ctrl+Alt` + letter, digit or symbol hotkey stops that AltGr
+character from being typed anywhere; MultiWiz warns when you pick one.
 
 | Action | Default |
 |---|---|
 | Focus the client in slot 1 … 8 | `Alt+1` … `Alt+8` |
 | Next client | `` Alt+` `` |
 | Previous client | `` Alt+Shift+` `` |
-| Show / hide the switcher | `Ctrl+Alt+S` |
-| Show / hide the Command Center | `Ctrl+Alt+C` |
-| Show MultiWiz | `Ctrl+Alt+M` |
-| Show / hide name badges | `Ctrl+Alt+B` |
+| Show / hide the switcher | `Ctrl+Alt+F9` |
+| Show / hide the Command Center | `Ctrl+Alt+F10` |
+| Show MultiWiz | `Ctrl+Alt+F11` |
+| Show / hide name badges | `Ctrl+Alt+F12` |
 
 Slots follow the active team's order first, then any other running clients in account-list order.
 

@@ -14,7 +14,11 @@ public sealed class InstallCatalog : IInstallCatalog, IDisposable
     private readonly IInstallLocator _locator;
     private readonly ISettingsStore _settings;
     private readonly ILogger<InstallCatalog> _logger;
+    // _lock guards _discovered and is never held during a discovery, which can take seconds (registry, Steam libraries,
+    // slow or sleeping drives), so readers get the cached list right away while a refresh runs. _discoveryLock lets
+    // one discovery run at a time; it is taken before _lock, never after.
     private readonly Lock _lock = new();
+    private readonly Lock _discoveryLock = new();
     private IReadOnlyList<GameInstall>? _discovered;
     private IReadOnlyList<GameInstall> _customInstalls;
 
@@ -77,9 +81,13 @@ public sealed class InstallCatalog : IInstallCatalog, IDisposable
 
     public void Refresh()
     {
-        lock (_lock)
+        lock (_discoveryLock)
         {
-            _discovered = Discover();
+            var found = Discover();
+            lock (_lock)
+            {
+                _discovered = found;
+            }
         }
 
         Changed?.Invoke(this, EventArgs.Empty);
@@ -91,7 +99,30 @@ public sealed class InstallCatalog : IInstallCatalog, IDisposable
     {
         lock (_lock)
         {
-            return _discovered ??= Discover();
+            if (_discovered is { } discovered)
+            {
+                return discovered;
+            }
+        }
+
+        // First use: discover, or wait for the discovery that is already running and use its result.
+        lock (_discoveryLock)
+        {
+            lock (_lock)
+            {
+                if (_discovered is { } discovered)
+                {
+                    return discovered;
+                }
+            }
+
+            var found = Discover();
+            lock (_lock)
+            {
+                _discovered = found;
+            }
+
+            return found;
         }
     }
 

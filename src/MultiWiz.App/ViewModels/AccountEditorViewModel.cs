@@ -193,6 +193,12 @@ public sealed partial class AccountEditorViewModel : ObservableObject
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _logger.LogError(ex, "Could not save account {AccountId}", _accountId);
+            if (_existing is null)
+            {
+                // No account refers to the password saved above; don't leave it behind in Credential Manager.
+                DeleteSavedPassword();
+            }
+
             ErrorMessage = "The account could not be saved. Check that MultiWiz can write to its data folder.";
             return;
         }
@@ -237,6 +243,18 @@ public sealed partial class AccountEditorViewModel : ObservableObject
             _logger.LogError(ex, "Could not save the password for account {AccountId}", _accountId);
             ErrorMessage = "The password could not be saved to Windows Credential Manager.";
             return false;
+        }
+    }
+
+    private void DeleteSavedPassword()
+    {
+        try
+        {
+            _vault.Delete(_accountId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not remove the saved password of account {AccountId}", _accountId);
         }
     }
 

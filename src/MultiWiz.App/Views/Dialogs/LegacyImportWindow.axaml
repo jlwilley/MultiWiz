@@ -37,14 +37,20 @@
                 <StackPanel Spacing="1">
                   <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                   <StackPanel Orientation="Horizontal" Spacing="6">
-                    <TextBlock Classes="caption" Text="{Binding Username}" />
-                    <TextBlock Classes="caption" Text="·" />
+                    <TextBlock Classes="caption" Text="{Binding Username}" IsVisible="{Binding HasUsername}" />
+                    <TextBlock Classes="caption" Text="·" IsVisible="{Binding HasUsername}" />
                     <TextBlock Classes="caption" Text="{Binding Realm}" />
                   </StackPanel>
+                  <TextBlock Classes="caption" TextWrapping="Wrap" IsVisible="{Binding CouldNotDecrypt}"
+                             Text="Can't be decrypted on this PC. Re-enter the login by editing the account after the import." />
                 </StackPanel>
-                <Border Grid.Column="1" Classes="chip busy" IsVisible="{Binding !HasPassword}"
+                <Border Grid.Column="1" Classes="chip busy" IsVisible="{Binding ShowNoPassword}"
                         ToolTip.Tip="You can add the password later by editing the account.">
                   <TextBlock Text="No password" />
+                </Border>
+                <Border Grid.Column="1" Classes="chip error" IsVisible="{Binding CouldNotDecrypt}"
+                        ToolTip.Tip="MultiWiz 3 saved this login for another Windows user or PC, so it can't be read here.">
+                  <TextBlock Text="Login needed" />
                 </Border>
               </Grid>
             </DataTemplate>

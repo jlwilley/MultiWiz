@@ -8,6 +8,8 @@ using MultiWiz.App.ViewModels;
 using MultiWiz.App.Views;
 using MultiWiz.App.Views.Dialogs;
 using MultiWiz.Core.Accounts;
+using MultiWiz.Core.Games;
+using MultiWiz.Core.Legacy;
 using MultiWiz.Core.Storage;
 
 namespace MultiWiz.App.Services;
@@ -181,6 +183,22 @@ internal sealed class SmokeTest
             await PauseAsync("account editor");
             GetDataContext<AccountEditorWindow, AccountEditorViewModel>(desktop).CancelCommand.Execute(null);
             await adding.WaitAsync(DialogTimeout);
+
+            // MultiWiz 3 import prompt with each kind of row (password, none, not decryptable here); "Not now" closes it.
+            var realms = services.GetRequiredService<IRealmCatalog>();
+            var realmId = realms.DefaultFor(GameKind.Wizard101).Id;
+            var importing = services.GetRequiredService<IDialogService>().ShowLegacyImportAsync(new LegacyImportViewModel(
+                new LegacyImportPreview(
+                    [
+                        new LegacyAccount("Smoke Test 3", "smoke-test-3", "placeholder", GameKind.Wizard101, realmId, WasPlainText: false),
+                        new LegacyAccount("Smoke Test 4", "smoke-test-4", string.Empty, GameKind.Wizard101, realmId, WasPlainText: false),
+                        new LegacyAccount("Smoke Test 5", string.Empty, string.Empty, GameKind.Wizard101, realmId, WasPlainText: false, CouldNotDecrypt: true),
+                    ],
+                    new LegacySettings(DarkMode: true, LoginWaitSeconds: 5, MuteWhenUnfocused: true, UnmuteVolume: 80, SwitcherOpacity: 0.9)),
+                realms));
+            await PauseAsync("MultiWiz 3 import prompt");
+            GetDataContext<LegacyImportWindow, LegacyImportViewModel>(desktop).LaterCommand.Execute(null);
+            await importing.WaitAsync(DialogTimeout);
 
             // Team editor (inline on the Teams page): a new team with the account in a slot, then deleted through
             // its confirmation dialog.

@@ -5,7 +5,7 @@ using MultiWiz.Core.Platform;
 
 namespace MultiWiz.Platform.Windows.Processes;
 
-/// <summary>A game client started by <see cref="ProcessLauncher"/>.</summary>
+/// <summary>A game client started (or re-opened after a restart) by <see cref="ProcessLauncher"/>.</summary>
 internal sealed class LaunchedProcess : ILaunchedProcess
 {
     private readonly Process _process;
@@ -32,6 +32,37 @@ internal sealed class LaunchedProcess : ILaunchedProcess
             {
                 // No process is associated any more (disposed).
                 return true;
+            }
+        }
+    }
+
+    public DateTimeOffset? StartTime
+    {
+        get
+        {
+            try
+            {
+                return new DateTimeOffset(_process.StartTime);
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or NotSupportedException)
+            {
+                // Exited, or not ours to inspect (access denied).
+                return null;
+            }
+        }
+    }
+
+    public string? ProcessName
+    {
+        get
+        {
+            try
+            {
+                return _process.ProcessName;
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or NotSupportedException)
+            {
+                return null;
             }
         }
     }

@@ -23,6 +23,10 @@ public sealed class ClientActions
     private readonly ILogger<ClientActions> _logger;
     private bool _confirmingExit;
 
+    // The synchronous start of the latest LaunchMany call. Each call's start runs after the previous one, so clients
+    // are started (and staggered) in the order they were asked for, as when launches started on the UI thread.
+    private Task _launchStarts = Task.CompletedTask;
+
     public ClientActions(
         ISessionManager sessions,
         ITeamLauncher teamLauncher,
@@ -58,7 +62,13 @@ public sealed class ClientActions
             ? $"Launching {AccountName(accountIds[0])}…"
             : $"Launching {accountIds.Count} accounts…");
         // Off the UI thread: the start of a launch (install lookup, Steam, Process.Start) runs before its first await.
-        Observe(Task.Run(() => LaunchManyCoreAsync(accountIds)), "launch");
+        var started = _launchStarts.ContinueWith(
+            _ => _sessions.LaunchManyAsync(accountIds),
+            CancellationToken.None,
+            TaskContinuationOptions.None,
+            TaskScheduler.Default);
+        _launchStarts = started;
+        Observe(LaunchManyCoreAsync(started.Unwrap()), "launch");
     }
 
     public void LaunchTeam(Guid teamId)
@@ -134,9 +144,9 @@ public sealed class ClientActions
         }
     }
 
-    private async Task LaunchManyCoreAsync(IReadOnlyList<Guid> accountIds)
+    private async Task LaunchManyCoreAsync(Task<IReadOnlyList<ClientSession>> launch)
     {
-        var results = await _sessions.LaunchManyAsync(accountIds).ConfigureAwait(false);
+        var results = await launch.ConfigureAwait(false);
         Report(results, successMessage: null);
     }
 

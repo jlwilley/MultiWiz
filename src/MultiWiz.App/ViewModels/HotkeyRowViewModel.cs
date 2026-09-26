@@ -25,11 +25,11 @@ public sealed partial class HotkeyRowViewModel : ObservableObject
     public string Label { get; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DisplayText), nameof(IsUnbound))]
+    [NotifyPropertyChangedFor(nameof(DisplayText), nameof(IsUnbound), nameof(ShowAltGrWarning))]
     public partial string BindingText { get; private set; } = string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DisplayText))]
+    [NotifyPropertyChangedFor(nameof(DisplayText), nameof(ShowAltGrWarning))]
     public partial bool IsCapturing { get; private set; }
 
     [ObservableProperty]
@@ -41,6 +41,13 @@ public sealed partial class HotkeyRowViewModel : ObservableObject
     public bool IsUnbound => BindingText.Length == 0;
 
     public string DisplayText => IsCapturing ? "Press a key combination…" : IsUnbound ? "Not set" : BindingText;
+
+    /// <summary>
+    /// The binding is Ctrl+Alt plus a key that types a character: Windows reports AltGr as Ctrl+Alt, so on layouts with
+    /// AltGr that character can no longer be typed anywhere while the hotkey is registered.
+    /// </summary>
+    public bool ShowAltGrWarning =>
+        !IsCapturing && HotkeyBinding.TryParse(BindingText, out var binding) && binding.MayCollideWithAltGr;
 
     internal void SetBindingText(string text) => BindingText = text;
 

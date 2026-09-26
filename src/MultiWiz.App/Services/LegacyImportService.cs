@@ -94,14 +94,25 @@ public sealed class LegacyImportService
     {
         try
         {
-            var added = _importer.Apply(preview);
+            var result = _importer.Import(preview);
+            var added = result.Added;
             _logger.LogInformation("Imported {Count} MultiWiz 3 accounts", added);
-            _status.Show(added switch
+            var message = added switch
             {
                 0 => "Your MultiWiz 3 accounts were already here, so nothing new was added.",
                 1 => "Imported 1 account from MultiWiz 3.",
                 _ => $"Imported {added} accounts from MultiWiz 3.",
-            });
+            };
+            if (result.NeedLoginDetails > 0)
+            {
+                // Encrypted for another Windows user or PC, or the password could not be saved.
+                message += result.NeedLoginDetails == 1
+                    ? " 1 needs its username or password re-entered: edit it on the Accounts page."
+                    : $" {result.NeedLoginDetails} need their username or password re-entered: edit them on the Accounts page.";
+            }
+
+            // Shown longer (as an error) when the user still has something to do.
+            _status.Show(message, isError: result.NeedLoginDetails > 0);
         }
         catch (Exception ex)
         {

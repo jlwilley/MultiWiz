@@ -12,7 +12,16 @@ public enum LegacyImportChoice
     Decline = 2,
 }
 
-public sealed record LegacyAccountRow(string DisplayName, string Username, string Realm, bool HasPassword);
+/// <param name="CouldNotDecrypt">
+/// The v3 login details were encrypted for another Windows user or PC, so the account comes in without them.
+/// </param>
+public sealed record LegacyAccountRow(string DisplayName, string Username, string Realm, bool HasPassword, bool CouldNotDecrypt)
+{
+    public bool HasUsername => Username.Length > 0;
+
+    /// <summary>No password to import, for a reason other than <see cref="CouldNotDecrypt"/> (which has its own note).</summary>
+    public bool ShowNoPassword => !HasPassword && !CouldNotDecrypt;
+}
 
 /// <summary>The first-run prompt listing the MultiWiz 3 accounts (and settings) that would be imported.</summary>
 public sealed partial class LegacyImportViewModel
@@ -24,7 +33,8 @@ public sealed partial class LegacyImportViewModel
                 account.DisplayName,
                 account.Username,
                 realms.Find(account.RealmId)?.DisplayName ?? account.RealmId,
-                !string.IsNullOrEmpty(account.Password)))
+                !string.IsNullOrEmpty(account.Password),
+                account.CouldNotDecrypt))
             .ToArray();
         SettingsSummary = DescribeSettings(preview.Settings);
     }

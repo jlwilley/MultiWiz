@@ -373,9 +373,11 @@
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:HotkeyRowViewModel">
                       <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,3">
-                        <StackPanel Spacing="1" VerticalAlignment="Center">
+                        <StackPanel Spacing="1" VerticalAlignment="Center" Margin="0,0,12,0">
                           <TextBlock Text="{Binding Label}" />
                           <TextBlock Classes="caption" Text="{Binding CaptureHint}" IsVisible="{Binding IsCapturing}" />
+                          <TextBlock Classes="caption" TextWrapping="Wrap" IsVisible="{Binding ShowAltGrWarning}"
+                                     Text="On keyboards with an AltGr key, this stops the AltGr character on that key from being typed anywhere." />
                         </StackPanel>
                         <PathIcon Grid.Column="1" Data="{StaticResource IconWarning}" Margin="0,0,10,0"
                                   Foreground="{DynamicResource CtpYellowBrush}"

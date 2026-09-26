@@ -9,13 +9,24 @@ namespace MultiWiz.Core.Tests.Fakes;
 
 internal sealed class FakeInstallLocator : IInstallLocator
 {
+    private readonly TaskCompletionSource _discovering = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private int _discoverCalls;
+
     public List<GameInstall> Installs { get; } = [];
 
-    public int DiscoverCalls { get; private set; }
+    public int DiscoverCalls => Volatile.Read(ref _discoverCalls);
+
+    /// <summary>When set, discoveries wait for it before answering, like a scan of a slow or sleeping drive.</summary>
+    public ManualResetEventSlim? Release { get; set; }
+
+    /// <summary>Completes when a discovery starts.</summary>
+    public Task Discovering => _discovering.Task;
 
     public IReadOnlyList<GameInstall> Discover()
     {
-        DiscoverCalls++;
+        Interlocked.Increment(ref _discoverCalls);
+        _discovering.TrySetResult();
+        Release?.Wait(TimeSpan.FromSeconds(30));
         return Installs.ToArray();
     }
 }

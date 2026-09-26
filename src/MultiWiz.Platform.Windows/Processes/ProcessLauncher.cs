@@ -4,7 +4,10 @@ using MultiWiz.Core.Platform;
 
 namespace MultiWiz.Platform.Windows.Processes;
 
-/// <summary>Starts game clients directly (no shell) with an explicit working directory.</summary>
+/// <summary>
+/// Starts game clients directly (no shell) with an explicit working directory, and re-opens clients that were
+/// started before MultiWiz restarted.
+/// </summary>
 internal sealed class ProcessLauncher : IProcessLauncher
 {
     private readonly ILogger<ProcessLauncher> _logger;
@@ -41,6 +44,26 @@ internal sealed class ProcessLauncher : IProcessLauncher
         _logger.LogInformation(
             "Started {Executable} as process {ProcessId} with arguments {Arguments}.",
             request.ExecutablePath, process.Id, request.Arguments);
+        return new LaunchedProcess(process, _logger);
+    }
+
+    public ILaunchedProcess? TryAttach(int processId)
+    {
+        Process process;
+        try
+        {
+            process = Process.GetProcessById(processId);
+        }
+        catch (ArgumentException)
+        {
+            // No process has that id any more.
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+
         return new LaunchedProcess(process, _logger);
     }
 }

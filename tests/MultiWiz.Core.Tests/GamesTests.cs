@@ -157,6 +157,49 @@ public sealed class InstallCatalogTests
     }
 
     [Fact]
+    public async Task Readers_get_the_cached_installs_while_a_refresh_runs()
+    {
+        _locator.Installs.Add(Install("standalone-wizard101", InstallSource.Standalone));
+        using var catalog = CreateCatalog(new FakeSettingsStore());
+        Assert.Single(catalog.GetAll());
+
+        using var release = new ManualResetEventSlim();
+        _locator.Release = release;
+        _locator.Installs.Add(Install("steam-wizard101-799960", InstallSource.Steam));
+        var refresh = Task.Run(catalog.Refresh, TestContext.Current.CancellationToken);
+        await _locator.Discovering.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        // Like the account editor opening during a rescan: answered from the cache instead of waiting for the scan.
+        var during = await Task.Run(catalog.GetAll, TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.Equal("standalone-wizard101", Assert.Single(during).Id);
+
+        release.Set();
+        await refresh;
+        Assert.Equal(2, catalog.GetAll().Count);
+    }
+
+    [Fact]
+    public async Task First_use_during_a_refresh_waits_for_that_discovery_instead_of_starting_another()
+    {
+        _locator.Installs.Add(Install("standalone-wizard101", InstallSource.Standalone));
+        using var catalog = CreateCatalog(new FakeSettingsStore());
+        using var release = new ManualResetEventSlim();
+        _locator.Release = release;
+
+        var refresh = Task.Run(catalog.Refresh, TestContext.Current.CancellationToken);
+        await _locator.Discovering.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        var firstUse = Task.Run(catalog.GetAll, TestContext.Current.CancellationToken);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+        Assert.False(firstUse.IsCompleted);
+
+        release.Set();
+        await refresh;
+        Assert.Single(await firstUse.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+        Assert.Equal(1, _locator.DiscoverCalls);
+    }
+
+    [Fact]
     public void Lists_standalone_then_steam_then_custom_and_skips_duplicate_ids()
     {
         _locator.Installs.Add(Install("steam-wizard101-799960", InstallSource.Steam));
