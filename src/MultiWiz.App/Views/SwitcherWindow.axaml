@@ -40,6 +40,12 @@
     <Style Selector="Button.entry.current Border.slot">
       <Setter Property="Background" Value="{DynamicResource CtpMauveBrush}" />
     </Style>
+    <Style Selector="Button.view.active">
+      <Setter Property="Background" Value="{DynamicResource CtpMauveSoftBrush}" />
+    </Style>
+    <Style Selector="Button.view.active PathIcon">
+      <Setter Property="Foreground" Value="{DynamicResource CtpMauveBrush}" />
+    </Style>
     <Style Selector="Button.entry.current Border.slot TextBlock">
       <Setter Property="Foreground" Value="{DynamicResource CtpOnMauveBrush}" />
     </Style>
@@ -52,7 +58,7 @@
           BoxShadow="0 6 20 0 #59000000"
           Opacity="{Binding Opacity}">
     <StackPanel Spacing="2">
-      <Grid ColumnDefinitions="Auto,*,Auto" Margin="4,0,0,6"
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="4,0,0,6"
             Background="Transparent" Cursor="SizeAll"
             PointerPressed="OnDragAreaPointerPressed"
             ToolTip.Tip="Drag to move">
@@ -61,7 +67,21 @@
         <TextBlock Grid.Column="1" Margin="8,0" VerticalAlignment="Center"
                    FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
                    Text="{Binding Title}" />
-        <Button Grid.Column="2" Classes="subtle small" Click="OnHideClick"
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" Margin="0,0,6,0">
+          <Button Classes="subtle small view" Classes.active="{Binding IsListMode}" Command="{Binding ShowListCommand}"
+                  AutomationProperties.Name="List view" ToolTip.Tip="Names only">
+            <PathIcon Data="{StaticResource IconViewList}" />
+          </Button>
+          <Button Classes="subtle small view" Classes.active="{Binding IsPreviewsMode}" Command="{Binding ShowPreviewsCommand}"
+                  AutomationProperties.Name="Small previews" ToolTip.Tip="Small live previews">
+            <PathIcon Data="{StaticResource IconViewPreviews}" />
+          </Button>
+          <Button Classes="subtle small view" Classes.active="{Binding IsLargeMode}" Command="{Binding ShowLargeCommand}"
+                  AutomationProperties.Name="Large previews" ToolTip.Tip="Large live previews">
+            <PathIcon Data="{StaticResource IconViewLarge}" />
+          </Button>
+        </StackPanel>
+        <Button Grid.Column="3" Classes="subtle small" Click="OnHideClick"
                 AutomationProperties.Name="Hide the switcher" ToolTip.Tip="Hide">
           <PathIcon Data="{StaticResource IconClose}" />
         </Button>
@@ -70,12 +90,37 @@
       <ItemsControl ItemsSource="{Binding Entries}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:SwitcherEntryViewModel">
-            <Button Classes="entry" Classes.current="{Binding IsCurrent}"
+            <Panel>
+            <!-- Large tile: a details bar over a big live preview. -->
+            <Button Classes="entry" Classes.current="{Binding IsCurrent}" IsVisible="{Binding IsLarge}"
+                    Command="{Binding FocusCommand}"
+                    AutomationProperties.Name="{Binding Name}">
+              <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                  <Border Classes="slot">
+                    <TextBlock Text="{Binding Slot}" />
+                  </Border>
+                  <Border Grid.Column="1" Classes="dot" Margin="10,0"
+                          Background="{Binding AccentColor, Converter={x:Static conv:AppConverters.AccentBrush}}" />
+                  <TextBlock Grid.Column="2" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                             Text="{Binding Name}" />
+                  <TextBlock Grid.Column="3" Classes="caption" Margin="8,0,0,0" VerticalAlignment="Center"
+                             TextWrapping="NoWrap"
+                             IsVisible="{Binding HasHotkeyHint}"
+                             Text="{Binding HotkeyHint}" />
+                </Grid>
+                <!-- The live preview is a native window placed over this placeholder by SwitcherWindow. -->
+                <Border Classes="thumb-host large" Width="{Binding LargeWidth}" Height="{Binding LargeHeight}"
+                        CornerRadius="6" HorizontalAlignment="Left"
+                        Background="{DynamicResource CtpMantleBrush}" />
+              </StackPanel>
+            </Button>
+            <Button Classes="entry" Classes.current="{Binding IsCurrent}" IsVisible="{Binding IsRow}"
                     Command="{Binding FocusCommand}"
                     AutomationProperties.Name="{Binding Name}">
               <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
                 <!-- The live preview is a native window placed over this placeholder by SwitcherWindow. -->
-                <Border Classes="thumb-host" Width="96" Height="54" CornerRadius="4" Margin="0,0,10,0"
+                <Border Classes="thumb-host small" Width="96" Height="54" CornerRadius="4" Margin="0,0,10,0"
                         Background="{DynamicResource CtpMantleBrush}"
                         IsVisible="{Binding ShowPreview}" />
                 <Border Grid.Column="1" Classes="slot">
@@ -91,6 +136,7 @@
                            Text="{Binding HotkeyHint}" />
               </Grid>
             </Button>
+            </Panel>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>

@@ -10,6 +10,9 @@ public enum ThemePreference { System = 0, Dark = 1, Light = 2 }
 
 public enum UpdateChannel { Stable = 0, Beta = 1 }
 
+/// <summary>How the switcher shows each client: name only, a small live preview, or a large live preview.</summary>
+public enum SwitcherViewMode { List = 0, Previews = 1, Large = 2 }
+
 /// <summary>All user preferences. Immutable; change via <see cref="ISettingsStore.Update"/>.</summary>
 public sealed record AppSettings
 {
@@ -124,8 +127,10 @@ public sealed record SwitcherSettings
     /// <summary>Clicking the switcher does not take focus away from the game.</summary>
     public bool DoNotStealFocus { get; init; } = true;
 
-    /// <summary>Show a small live preview of each client next to its name.</summary>
-    public bool ShowPreviews { get; init; } = true;
+    public SwitcherViewMode ViewMode { get; init; } = SwitcherViewMode.Previews;
+
+    /// <summary>Size of the large previews relative to the automatic size for the monitor (50-200).</summary>
+    public int LargePreviewScalePercent { get; init; } = 100;
 
     /// <summary>Last position in physical pixels; null = default (right edge, one third down).</summary>
     public int? Left { get; init; }

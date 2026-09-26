@@ -25,7 +25,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
         nameof(AutoLogin), nameof(ReadyDelaySeconds), nameof(WindowTimeoutSeconds), nameof(KeystrokeDelayMs),
         nameof(StaggerSeconds), nameof(RefocusAfterLogin),
         nameof(AudioEnabled), nameof(FocusedVolume), nameof(UnfocusedVolume),
-        nameof(SwitcherOpacity), nameof(ShowSwitcherOnTeamLaunch), nameof(DoNotStealFocus), nameof(ShowSwitcherPreviews),
+        nameof(SwitcherOpacity), nameof(ShowSwitcherOnTeamLaunch), nameof(DoNotStealFocus), nameof(SelectedSwitcherView), nameof(LargePreviewScale),
         nameof(ShowNameBadges),
         nameof(EfficiencyMode), nameof(LowerPriority),
         nameof(HotkeysEnabled),
@@ -166,8 +166,14 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
     [ObservableProperty]
     public partial bool DoNotStealFocus { get; set; }
 
+    public IReadOnlyList<SwitcherViewOption> SwitcherViewOptions => SwitcherViewOption.All;
+
     [ObservableProperty]
-    public partial bool ShowSwitcherPreviews { get; set; }
+    public partial SwitcherViewOption? SelectedSwitcherView { get; set; }
+
+    /// <summary>Large switcher preview size in percent (50-200).</summary>
+    [ObservableProperty]
+    public partial double LargePreviewScale { get; set; }
 
     [ObservableProperty]
     public partial bool ShowNameBadges { get; set; }
@@ -586,7 +592,8 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
                 Opacity = Math.Round(SwitcherOpacity, 2),
                 ShowOnTeamLaunch = ShowSwitcherOnTeamLaunch,
                 DoNotStealFocus = DoNotStealFocus,
-                ShowPreviews = ShowSwitcherPreviews,
+                ViewMode = SelectedSwitcherView?.Value ?? settings.Switcher.ViewMode,
+                LargePreviewScalePercent = (int)Math.Round(LargePreviewScale),
             },
             Overlays = settings.Overlays with { ShowNameBadges = ShowNameBadges },
             Performance = settings.Performance with
@@ -625,7 +632,9 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
             SwitcherOpacity = settings.Switcher.Opacity;
             ShowSwitcherOnTeamLaunch = settings.Switcher.ShowOnTeamLaunch;
             DoNotStealFocus = settings.Switcher.DoNotStealFocus;
-            ShowSwitcherPreviews = settings.Switcher.ShowPreviews;
+            SelectedSwitcherView = SwitcherViewOption.All.FirstOrDefault(option => option.Value == settings.Switcher.ViewMode)
+                ?? SwitcherViewOption.All[1];
+            LargePreviewScale = settings.Switcher.LargePreviewScalePercent;
             ShowNameBadges = settings.Overlays.ShowNameBadges;
 
             EfficiencyMode = settings.Performance.EfficiencyModeForBackground;

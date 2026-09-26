@@ -53,7 +53,13 @@ public partial class SwitcherWindow : Window
 
             SyncPreviews();
         };
-        LayoutUpdated += (_, _) => SyncPreviews();
+        LayoutUpdated += (_, _) =>
+        {
+            KeepOnScreen();
+            SyncPreviews();
+        };
+        PositionChanged += (_, _) => ReportScreen();
+        ScalingChanged += (_, _) => ReportScreen();
         ScalingChanged += (_, _) => SyncPreviews();
         _previewCheck.Tick += (_, _) => SyncPreviews();
     }
@@ -65,6 +71,7 @@ public partial class SwitcherWindow : Window
         _thumbnails = thumbnails;
         PlaceInitially();
         ApplyNoActivate();
+        ReportScreen();
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -151,10 +158,9 @@ public partial class SwitcherWindow : Window
         foreach (var host in this.GetVisualDescendants().OfType<Border>())
         {
             if (!host.Classes.Contains(PreviewHostClass)
-                || !host.IsVisible
                 || host.DataContext is not SwitcherEntryViewModel entry
-                || !entry.ShowPreview
                 || entry.WindowHandle == 0
+                || !(entry.IsLarge ? host.Classes.Contains("large") : entry.ShowPreview && host.Classes.Contains("small"))
                 || host.TranslatePoint(new Point(0, 0), this) is not { } origin)
             {
                 continue;
@@ -199,6 +205,40 @@ public partial class SwitcherWindow : Window
             _previews[source].Thumbnail.Dispose();
             _previews.Remove(source);
         }
+    }
+
+    /// <summary>
+    /// Switching to large previews makes the window much wider and taller; pull it back inside its monitor's working
+    /// area (a switcher parked at the right edge would otherwise grow off-screen).
+    /// </summary>
+    private void KeepOnScreen()
+    {
+        if (!IsVisible || Screens.ScreenFromWindow(this) is not { } screen)
+        {
+            return;
+        }
+
+        var area = screen.WorkingArea;
+        var width = (int)Math.Ceiling(Bounds.Width * screen.Scaling);
+        var height = (int)Math.Ceiling(Bounds.Height * screen.Scaling);
+        var x = Math.Max(area.X, Math.Min(Position.X, area.X + area.Width - width));
+        var y = Math.Max(area.Y, Math.Min(Position.Y, area.Y + area.Height - height));
+        if (x != Position.X || y != Position.Y)
+        {
+            Position = new PixelPoint(x, y);
+        }
+    }
+
+    /// <summary>Tells the view model the working area (DIPs) of the monitor the switcher is on, to size large tiles.</summary>
+    private void ReportScreen()
+    {
+        if (_viewModel is null || Screens.ScreenFromWindow(this) is not { } screen)
+        {
+            return;
+        }
+
+        var area = screen.WorkingArea;
+        _viewModel.SetScreen(area.Width / screen.Scaling, area.Height / screen.Scaling);
     }
 
     private void ReleasePreviews()

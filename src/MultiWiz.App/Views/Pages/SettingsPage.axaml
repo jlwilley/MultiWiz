@@ -304,11 +304,25 @@
                 <Border Classes="divider" />
                 <Grid Classes="setting" ColumnDefinitions="*,Auto">
                   <StackPanel>
-                    <TextBlock Classes="setting-title" Text="Live previews" />
-                    <TextBlock Classes="caption" Text="Shows a small live picture of each client in the switcher." />
+                    <TextBlock Classes="setting-title" Text="View" />
+                    <TextBlock Classes="caption" Text="Names only, small live previews, or large live previews. The buttons at the top of the switcher change this too." />
                   </StackPanel>
-                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding ShowSwitcherPreviews}"
-                                AutomationProperties.Name="Show live previews in the switcher" />
+                  <ComboBox Grid.Column="1" MinWidth="240"
+                            ItemsSource="{Binding SwitcherViewOptions}"
+                            SelectedItem="{Binding SelectedSwitcherView}"
+                            AutomationProperties.Name="Switcher view" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,260,56">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Large preview size" />
+                    <TextBlock Classes="caption" Text="100% fits the monitor the switcher is on; clients that don't fit show as small rows." />
+                  </StackPanel>
+                  <Slider Grid.Column="1" Minimum="50" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="True"
+                          Value="{Binding LargePreviewScale}"
+                          AutomationProperties.Name="Large preview size" />
+                  <TextBlock Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right"
+                             Text="{Binding LargePreviewScale, Converter={x:Static conv:AppConverters.WholePercent}}" />
                 </Grid>
               </StackPanel>
             </Border>

@@ -43,8 +43,22 @@ public sealed partial class SwitcherEntryViewModel : ObservableObject
     [ObservableProperty]
     public partial nint WindowHandle { get; set; }
 
+    /// <summary>Row layout with a small preview (Previews mode, or a Large-mode client that didn't fit).</summary>
     [ObservableProperty]
     public partial bool ShowPreview { get; set; }
+
+    /// <summary>Shown as a large preview tile.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsRow))]
+    public partial bool IsLarge { get; set; }
+
+    public bool IsRow => !IsLarge;
+
+    [ObservableProperty]
+    public partial double LargeWidth { get; set; }
+
+    [ObservableProperty]
+    public partial double LargeHeight { get; set; }
 
     public bool HasHotkeyHint => !string.IsNullOrEmpty(HotkeyHint);
 
@@ -101,11 +115,64 @@ public sealed partial class SwitcherViewModel : ObservableObject, IDisposable
     public partial bool DoNotStealFocus { get; private set; } = true;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(WindowWidth))]
-    public partial bool ShowPreviews { get; private set; } = true;
+    [NotifyPropertyChangedFor(nameof(WindowWidth), nameof(IsListMode), nameof(IsPreviewsMode), nameof(IsLargeMode))]
+    public partial SwitcherViewMode ViewMode { get; private set; } = SwitcherViewMode.Previews;
 
-    /// <summary>Wider when previews are shown, so names still fit next to them.</summary>
-    public double WindowWidth => ShowPreviews ? 340 : 280;
+    public bool IsListMode => ViewMode == SwitcherViewMode.List;
+
+    public bool IsPreviewsMode => ViewMode == SwitcherViewMode.Previews;
+
+    public bool IsLargeMode => ViewMode == SwitcherViewMode.Large;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WindowWidth))]
+    public partial double LargeTileWidth { get; private set; } = 320;
+
+    /// <summary>
+    /// Window width in DIPs: fixed for the list and small previews; in Large mode the tile width plus the window's
+    /// margin, padding and button padding.
+    /// </summary>
+    public double WindowWidth => ViewMode switch
+    {
+        SwitcherViewMode.List => 280,
+        SwitcherViewMode.Previews => 340,
+        _ => Math.Max(340, LargeTileWidth + 52),
+    };
+
+    // Working area of the switcher's monitor in DIPs; the large tiles are sized from it.
+    private double _screenWidth = 1920;
+    private double _screenHeight = 1040;
+
+    /// <summary>Called by the window with the working area (DIPs) of the monitor it is on.</summary>
+    public void SetScreen(double width, double height)
+    {
+        if (Math.Abs(width - _screenWidth) < 1 && Math.Abs(height - _screenHeight) < 1)
+        {
+            return;
+        }
+
+        _screenWidth = width;
+        _screenHeight = height;
+        _refresh.Request();
+    }
+
+    [RelayCommand]
+    private void ShowList() => SetViewMode(SwitcherViewMode.List);
+
+    [RelayCommand]
+    private void ShowPreviews() => SetViewMode(SwitcherViewMode.Previews);
+
+    [RelayCommand]
+    private void ShowLarge() => SetViewMode(SwitcherViewMode.Large);
+
+    private void SetViewMode(SwitcherViewMode mode)
+    {
+        ViewMode = mode;
+        _refresh.Request();
+        _settings.Update(settings => settings.Switcher.ViewMode == mode
+            ? settings
+            : settings with { Switcher = settings.Switcher with { ViewMode = mode } });
+    }
 
     /// <summary>Where the user last left the switcher (physical pixels), or null for the default spot.</summary>
     public (int X, int Y)? SavedPosition =>
@@ -141,7 +208,17 @@ public sealed partial class SwitcherViewModel : ObservableObject, IDisposable
         var settings = _settings.Current;
         Opacity = settings.Switcher.Opacity;
         DoNotStealFocus = settings.Switcher.DoNotStealFocus;
-        ShowPreviews = settings.Switcher.ShowPreviews;
+        ViewMode = settings.Switcher.ViewMode;
+
+        // Large tiles: about a fifth of the monitor wide at 100%, 16:9, plus a details bar; only as many as fit
+        // the monitor's height are large, the rest stay small rows below them.
+        var scale = Math.Clamp(settings.Switcher.LargePreviewScalePercent, 50, 200) / 100.0;
+        var tileWidth = Math.Round(Math.Clamp(_screenWidth * 0.2 * scale, 200, _screenWidth * 0.6));
+        var tileHeight = Math.Round(tileWidth * 9 / 16);
+        LargeTileWidth = tileWidth;
+        const double chrome = 110; // title row, window margin and padding
+        const double perTileExtra = 46; // details bar and spacing
+        var maxLarge = Math.Max(1, (int)((_screenHeight - chrome) / (tileHeight + perTileExtra)));
         Title = _switcher.ActiveTeamId is { } teamId && _teams.Find(teamId) is { } team ? team.Name : "Switcher";
 
         var sessions = _switcher.OrderedSessions;
@@ -164,7 +241,10 @@ public sealed partial class SwitcherViewModel : ObservableObject, IDisposable
             entry.HotkeyHint = HotkeyHintFor(settings.Hotkeys, i, failedHotkeys);
             entry.IsCurrent = session.AccountId == currentId;
             entry.WindowHandle = session.WindowHandle;
-            entry.ShowPreview = settings.Switcher.ShowPreviews;
+            entry.IsLarge = ViewMode == SwitcherViewMode.Large && i < maxLarge;
+            entry.ShowPreview = !entry.IsLarge && ViewMode != SwitcherViewMode.List;
+            entry.LargeWidth = tileWidth;
+            entry.LargeHeight = tileHeight;
             ordered.Add(entry);
         }
 

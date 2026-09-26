@@ -51,6 +51,18 @@ public sealed record ThemeOption(ThemePreference Value, string Label)
     public override string ToString() => Label;
 }
 
+public sealed record SwitcherViewOption(SwitcherViewMode Value, string Label)
+{
+    public static IReadOnlyList<SwitcherViewOption> All { get; } =
+    [
+        new(SwitcherViewMode.List, "List (names only)"),
+        new(SwitcherViewMode.Previews, "Small previews"),
+        new(SwitcherViewMode.Large, "Large previews"),
+    ];
+
+    public override string ToString() => Label;
+}
+
 public sealed record ChannelOption(UpdateChannel Value, string Label)
 {
     public static IReadOnlyList<ChannelOption> All { get; } =

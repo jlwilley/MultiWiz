@@ -158,6 +158,8 @@ public sealed class JsonSettingsStore : ISettingsStore
             },
             Switcher = switcher with
             {
+                ViewMode = Enum.IsDefined(switcher.ViewMode) ? switcher.ViewMode : SwitcherViewMode.Previews,
+                LargePreviewScalePercent = Math.Clamp(switcher.LargePreviewScalePercent, 50, 200),
                 Opacity = double.IsFinite(switcher.Opacity)
                     ? Math.Clamp(switcher.Opacity, MinimumSwitcherOpacity, 1.0)
                     : new SwitcherSettings().Opacity,
