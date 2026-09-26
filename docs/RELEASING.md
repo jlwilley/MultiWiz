@@ -11,7 +11,6 @@ git tag -a v4.1.0-beta.1 -m "MultiWiz 4.1.0-beta.1"
 git push origin v4.1.0-beta.1
 
 # Stable: normal GitHub release on the default "win" channel (every stable user, including MultiWiz 3.x).
-# Blocked until the repository variable STABLE_RELEASES_ENABLED is true; see "Why stable stays on win".
 git tag -a v4.1.0 -m "MultiWiz 4.1.0"
 git push origin v4.1.0
 ```
@@ -65,16 +64,9 @@ releases of `jlwilley/MultiWiz`, downloads any higher version in the background,
 restart. MultiWiz 4 keeps the same package id (`MultiWiz`), the same executable (`MultiWiz.exe`) and
 the same default channel (`win`) so that v3 installs update straight into v4. The consequences:
 
-- **Don't push a stable `v4.x.y` tag until v4 is ready to replace v3 for everyone.** Every v3 user who
-  opens MultiWiz 3 after that release will be prompted to restart into v4. Until then, ship only
-  `-beta` tags. MultiWiz 3 never looks at pre-releases, and betas use a different feed anyway.
-- The release workflow enforces this. It fails every stable tag before building unless the repository
-  variable `STABLE_RELEASES_ENABLED` is `true` (**Settings → Secrets and variables → Actions →
-  Variables**). It must be a repository variable: the check runs in the build job, which is outside the
-  `release` environment and can't see that environment's variables. Create it only when you are ready to
-  ship 4.0.0 to every v3 user, and leave it set afterwards. A stable tag pushed by mistake while the
-  variable is unset publishes nothing: delete the tag (`git push --delete origin v4.0.0`) and push the
-  one you meant.
+- **Every stable tag reaches every user, MultiWiz 3 included.** Anyone who opens MultiWiz 3 after a
+  stable v4 release is prompted to restart into v4. Use `-beta` tags for anything you want to try on
+  a few machines first; MultiWiz 3 never looks at pre-releases, and betas use a different feed anyway.
 - There is no rollback. Deleting the GitHub release stops further updates, but anyone who already
   updated stays on v4. Fix forward with a new patch release.
 - The first stable v4 release carries no delta package. The workflow does not build deltas across
@@ -99,8 +91,7 @@ published files as an artifact and only packages, signs and uploads them.
 Build job:
 
 1. Derives the version from the tag (`v4.1.0-beta.1` → `4.1.0-beta.1`) and picks the channel (`beta` if
-   the version contains `-`, otherwise stable). A stable tag stops here unless `STABLE_RELEASES_ENABLED`
-   is `true`.
+   the version contains `-`, otherwise stable).
 2. Restores, builds (`-p:Version=<version>`) and runs the tests.
 3. Publishes `src/MultiWiz.App` self-contained for `win-x64` and uploads it as the `MultiWiz-win-x64`
    artifact of the run (kept for 30 days).
@@ -299,14 +290,13 @@ replaces your real MultiWiz install, because every build uses the same package i
   rehearsed against a scratch repository:
   1. Create an empty public repository, for example `jlwilley/MultiWiz-updatetest`.
   2. Check out tag `v3.3.5`. Change the `GithubSource` URL in `MultiWiz/MainWindow.xaml.cs` to the
-     scratch repository and push that tree to the scratch repository's `master`. Its old release
+     scratch repository and push that tree to the scratch repository's default branch. Its old release
      workflow publishes a v3 release there. Before pushing, pin vpk in that workflow to the version
      that built the real v3.3.5 release, so the scratch install gets the same `Update.exe` and
      packaging as real v3 installs: change `dotnet tool install -g vpk` to
      `dotnet tool install -g vpk --version 0.0.1298`. If that 2025 workflow no longer runs, bump its
      action versions too.
-  3. In the scratch repository, add the repository variable `STABLE_RELEASES_ENABLED` = `true`. In a v4
-     working copy, change `AppInfo.RepositoryUrl` (`src/MultiWiz.App/AppInfo.cs`) to the scratch
+  3. In a v4 working copy, change `AppInfo.RepositoryUrl` (`src/MultiWiz.App/AppInfo.cs`) to the scratch
      repository. Push it to another branch of the scratch repository, then push the tag `v4.0.0` there.
   4. In Windows Sandbox, install the scratch repository's v3 `MultiWiz-win-Setup.exe`, add a dummy
      account and restart MultiWiz 3. It should download 4.0.0 and prompt you to restart. After the

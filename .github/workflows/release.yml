@@ -1,7 +1,6 @@
 name: Release
 
 # v4.1.0        -> stable: Velopack's default "win" channel (the feed MultiWiz 3.x installs read), normal GitHub release.
-#                  Blocked unless the repository variable STABLE_RELEASES_ENABLED is 'true'.
 # v4.1.0-beta.1 -> beta:   "beta" channel, GitHub pre-release.
 # See docs/RELEASING.md.
 on:
@@ -61,7 +60,6 @@ jobs:
         id: version
         env:
           TAG: ${{ github.ref_name }}
-          STABLE_RELEASES_ENABLED: ${{ vars.STABLE_RELEASES_ENABLED }}
         run: |
           # vpk requires a strict three-part SemVer 2 version (ASCII digits, no leading zeros); anything after '-'
           # marks a beta.
@@ -75,12 +73,6 @@ jobs:
           }
           $version = $match.Groups[1].Value
           $beta = if ($version.Contains('-')) { 'true' } else { 'false' }
-
-          # A stable tag publishes to the "win" channel, which every MultiWiz 3 install reads and updates from.
-          if ($beta -eq 'false' -and $env:STABLE_RELEASES_ENABLED -ne 'true') {
-            Write-Output "::error title=Stable release blocked::'$env:TAG' is a stable tag. Stable releases publish to the 'win' channel and upgrade every MultiWiz 3 install. Set the repository variable STABLE_RELEASES_ENABLED to true once v4 is ready to replace v3 (see docs/RELEASING.md)."
-            exit 1
-          }
 
           Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_VERSION=$version"
           Add-Content -Path $env:GITHUB_OUTPUT -Value @("version=$version", "beta=$beta")

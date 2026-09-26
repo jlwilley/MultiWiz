@@ -5,7 +5,6 @@
 **Multi-account launcher and multiboxing companion for Wizard101 and Pirate101**
 
 [![Latest release](https://img.shields.io/github/v/release/jlwilley/MultiWiz?sort=semver&label=release)](https://github.com/jlwilley/MultiWiz/releases/latest)
-[![Latest pre-release](https://img.shields.io/github/v/release/jlwilley/MultiWiz?include_prereleases&sort=semver&label=pre-release)](https://github.com/jlwilley/MultiWiz/releases)
 [![CI](https://github.com/jlwilley/MultiWiz/actions/workflows/ci.yml/badge.svg)](https://github.com/jlwilley/MultiWiz/actions/workflows/ci.yml)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4)
 [![License](https://img.shields.io/github/license/jlwilley/MultiWiz)](LICENSE)
@@ -16,8 +15,8 @@ MultiWiz saves your KingsIsle accounts and launches as many clients as you like,
 pointed at the right realm and logged in. It arranges the windows into a layout, lets you jump between
 clients with global hotkeys, and keeps background clients quiet and light on your CPU.
 
-MultiWiz 4 is a from-scratch rewrite on .NET 10 and Avalonia. Until 4.0 is released on the stable
-channel, the newest stable download is MultiWiz 3.x, and v4 builds appear as pre-releases.
+MultiWiz 4 is a from-scratch rewrite on .NET 10 and Avalonia. MultiWiz 3 installs update to it
+automatically.
 
 ## Features
 
@@ -71,8 +70,8 @@ channel, the newest stable download is MultiWiz 3.x, and v4 builds appear as pre
    Desktop and Start menu shortcuts.
 
 **Installing a beta:** an install from `MultiWiz-beta-Setup.exe` starts on the Beta update channel
-(Settings → General → Update channel). Stay on Beta until 4.0 is released on the stable channel: a v4
-beta switched to Stable reports that it is up to date and is never moved back to MultiWiz 3.
+(Settings → General → Update channel) and also receives stable releases. Switching back to Stable
+takes effect with the next stable release.
 
 **SmartScreen:** Windows may show "Windows protected your PC" for a new download. Click
 **More info → Run anyway**. New releases have no download reputation yet, and unsigned builds show
@@ -87,8 +86,7 @@ passwords removed, delete your accounts in MultiWiz first.
 
 ## Upgrading from MultiWiz 3
 
-- **Automatic:** once 4.0 is published on the stable channel, MultiWiz 3 downloads it in the
-  background and asks you to restart. After the restart you are on v4. You can also install
+- **Automatic:** MultiWiz 3 downloads v4 in the background and asks you to restart. After the restart you are on v4. You can also install
   `MultiWiz-win-Setup.exe` over v3.
 - **Import:** on first start, MultiWiz 4 finds your v3 data (`%AppData%\MultiWiz\config.txt` and
   `settings.txt`), shows the accounts it found, and offers to import them. The import covers:
