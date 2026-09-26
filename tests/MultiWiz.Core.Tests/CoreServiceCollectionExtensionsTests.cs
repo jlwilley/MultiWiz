@@ -66,8 +66,8 @@ public sealed class CoreServiceCollectionExtensionsTests : IDisposable
     }
 
     private static void AssertShared<TService, TImplementation>(IServiceProvider provider)
-        where TService : notnull
-        where TImplementation : notnull
+        where TService : class
+        where TImplementation : class
     {
         var viaInterface = provider.GetRequiredService<TService>();
         Assert.IsType<TImplementation>(viaInterface);
