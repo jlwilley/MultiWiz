@@ -1,0 +1,149 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MultiWiz.App.ViewModels"
+        xmlns:conv="using:MultiWiz.App.Converters"
+        x:Class="MultiWiz.App.Views.Dialogs.AccountEditorWindow"
+        x:DataType="vm:AccountEditorViewModel"
+        Title="MultiWiz"
+        Width="580"
+        SizeToContent="Height"
+        CanResize="False"
+        CanMinimize="False"
+        CanMaximize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource CtpBaseBrush}"
+        Foreground="{DynamicResource CtpTextBrush}">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style Selector="ListBox.swatches">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ListBox.swatches ListBoxItem">
+      <Setter Property="Padding" Value="3" />
+      <Setter Property="Margin" Value="0,0,6,6" />
+      <Setter Property="CornerRadius" Value="16" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBox.swatches ListBoxItem:selected">
+      <Setter Property="BorderBrush" Value="{DynamicResource CtpTextBrush}" />
+    </Style>
+    <Style Selector="ListBox.swatches ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBox.swatches ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource CtpSurface0Brush}" />
+    </Style>
+  </Window.Styles>
+
+  <StackPanel Margin="24" Spacing="16">
+    <StackPanel Spacing="2">
+      <TextBlock Classes="h2" Text="{Binding Title}" />
+      <TextBlock Classes="caption" Text="Your password is stored in Windows Credential Manager, never in MultiWiz's own files." />
+    </StackPanel>
+
+    <Grid ColumnDefinitions="*,16,*">
+      <StackPanel Spacing="6">
+        <TextBlock Classes="label" Text="Name" />
+        <TextBox x:Name="NameBox" Text="{Binding DisplayName}" MaxLength="64"
+                 PlaceholderText="For example Storm Main"
+                 AutomationProperties.Name="Name" />
+      </StackPanel>
+      <StackPanel Grid.Column="2" Spacing="6">
+        <TextBlock Classes="label" Text="Username" />
+        <TextBox Text="{Binding Username}" MaxLength="64"
+                 PlaceholderText="KingsIsle login name"
+                 AutomationProperties.Name="Username" />
+      </StackPanel>
+    </Grid>
+
+    <StackPanel Spacing="6">
+      <TextBlock Classes="label" Text="Password" />
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBox Text="{Binding Password}" PasswordChar="•"
+                 RevealPassword="{Binding IsPasswordRevealed}"
+                 PlaceholderText="{Binding PasswordPlaceholder}"
+                 MaxLength="1280"
+                 AutomationProperties.Name="Password" />
+        <ToggleButton Grid.Column="1" Margin="8,0,0,0" Padding="9,7"
+                      IsChecked="{Binding IsPasswordRevealed}"
+                      AutomationProperties.Name="Show password"
+                      ToolTip.Tip="Show password">
+          <PathIcon Data="{StaticResource IconEye}" />
+        </ToggleButton>
+      </Grid>
+    </StackPanel>
+
+    <Grid ColumnDefinitions="*,16,*">
+      <StackPanel Spacing="6">
+        <TextBlock Classes="label" Text="Game" />
+        <ComboBox HorizontalAlignment="Stretch"
+                  ItemsSource="{Binding Games}"
+                  SelectedItem="{Binding SelectedGame}"
+                  AutomationProperties.Name="Game" />
+      </StackPanel>
+      <StackPanel Grid.Column="2" Spacing="6">
+        <TextBlock Classes="label" Text="Realm" />
+        <ComboBox HorizontalAlignment="Stretch"
+                  ItemsSource="{Binding Realms}"
+                  SelectedItem="{Binding SelectedRealm}"
+                  AutomationProperties.Name="Realm" />
+      </StackPanel>
+    </Grid>
+
+    <StackPanel Spacing="6">
+      <TextBlock Classes="label" Text="Game install" />
+      <ComboBox HorizontalAlignment="Stretch"
+                ItemsSource="{Binding Installs}"
+                SelectedItem="{Binding SelectedInstall}"
+                AutomationProperties.Name="Game install" />
+      <TextBlock Classes="caption" Text="Automatic uses your preferred install for this game (Settings → Games)." />
+    </StackPanel>
+
+    <StackPanel Spacing="6">
+      <TextBlock Classes="label" Text="Colour" />
+      <ListBox Classes="swatches"
+               ItemsSource="{Binding Swatches}"
+               SelectedItem="{Binding SelectedAccent}"
+               AutomationProperties.Name="Colour">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:AccentSwatch">
+            <Border Width="24" Height="24" CornerRadius="12"
+                    Background="{Binding Color, Converter={x:Static conv:AppConverters.AccentBrush}}"
+                    ToolTip.Tip="{Binding Name}"
+                    AutomationProperties.Name="{Binding Name}" />
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </StackPanel>
+
+    <StackPanel Spacing="6">
+      <TextBlock Classes="label" Text="Notes" />
+      <TextBox Text="{Binding Notes}" AcceptsReturn="True" TextWrapping="Wrap" Height="72" MaxLength="500"
+               PlaceholderText="Optional, for example which school or which quest line"
+               AutomationProperties.Name="Notes" />
+    </StackPanel>
+
+    <Border IsVisible="{Binding HasError}"
+            Background="{DynamicResource CtpRedSoftBrush}" CornerRadius="8" Padding="12,8">
+      <TextBlock Classes="error" Text="{Binding ErrorMessage}" />
+    </Border>
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button MinWidth="96" Content="Cancel" Command="{Binding CancelCommand}" />
+      <Button MinWidth="120" Classes="primary" IsDefault="True"
+              Content="{Binding SaveText}"
+              Command="{Binding SaveCommand}" />
+    </StackPanel>
+  </StackPanel>
+</Window>

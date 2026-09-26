@@ -1,0 +1,146 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MultiWiz.App.ViewModels"
+             xmlns:conv="using:MultiWiz.App.Converters"
+             x:Class="MultiWiz.App.Views.Pages.AccountsPage"
+             x:DataType="vm:AccountsPageViewModel">
+
+  <Grid RowDefinitions="Auto,*" Margin="32,28,32,16">
+
+    <!-- Header -->
+    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,20">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="h1" Text="Accounts" />
+        <TextBlock Classes="caption" Text="{Binding Summary}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Button Content="Import from MultiWiz 3"
+                IsVisible="{Binding HasLegacyData}"
+                Command="{Binding ImportLegacyCommand}" />
+        <Button Command="{Binding LaunchSelectedCommand}"
+                IsVisible="{Binding !IsEmpty}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Data="{StaticResource IconPlay}" Width="12" Height="12" />
+            <TextBlock Text="{Binding LaunchSelectedText}" />
+          </StackPanel>
+        </Button>
+        <Button Classes="primary" Command="{Binding AddAccountCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" />
+            <TextBlock Text="Add account" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+    </Grid>
+
+    <!-- Account list -->
+    <DockPanel Grid.Row="1" IsVisible="{Binding !IsEmpty}">
+      <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="4,0,4,10">
+        <TextBlock Classes="eyebrow" VerticalAlignment="Center"
+                   Text="TICK ACCOUNTS TO LAUNCH THEM TOGETHER" />
+        <Button Grid.Column="1" Classes="link"
+                Content="{Binding SelectAllText}"
+                Command="{Binding ToggleSelectAllCommand}" />
+      </Grid>
+
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <ItemsControl ItemsSource="{Binding Accounts}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AccountItemViewModel">
+              <Border Classes="card" Padding="16,12" Margin="0,0,0,8">
+                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+                  <CheckBox VerticalAlignment="Center"
+                            IsChecked="{Binding IsSelected}"
+                            AutomationProperties.Name="{Binding DisplayName}"
+                            ToolTip.Tip="Select for launching together" />
+
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="4,0,12,0">
+                    <Button Classes="subtle small" Command="{Binding MoveUpCommand}"
+                            AutomationProperties.Name="Move up" ToolTip.Tip="Move up">
+                      <PathIcon Data="{StaticResource IconChevronUp}" />
+                    </Button>
+                    <Button Classes="subtle small" Command="{Binding MoveDownCommand}"
+                            AutomationProperties.Name="Move down" ToolTip.Tip="Move down">
+                      <PathIcon Data="{StaticResource IconChevronDown}" />
+                    </Button>
+                  </StackPanel>
+
+                  <Border Grid.Column="2" Classes="dot" Margin="0,0,14,0"
+                          Background="{Binding AccentColor, Converter={x:Static conv:AppConverters.AccentBrush}}" />
+
+                  <StackPanel Grid.Column="3" VerticalAlignment="Center" Spacing="2">
+                    <TextBlock Text="{Binding DisplayName}" FontSize="15" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="caption" Text="{Binding Subtitle}"
+                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+
+                  <Border Grid.Column="4" Classes="chip" Margin="12,0"
+                          Classes.ok="{Binding IsRunning}"
+                          Classes.busy="{Binding IsBusy}"
+                          Classes.error="{Binding IsFailed}"
+                          ToolTip.Tip="{Binding StatusToolTip}">
+                    <TextBlock Text="{Binding StatusText}" />
+                  </Border>
+
+                  <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <Button Classes="primary" MinWidth="92" IsVisible="{Binding !IsAlive}"
+                            Command="{Binding LaunchCommand}"
+                            AutomationProperties.Name="Launch">
+                      <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                        <PathIcon Data="{StaticResource IconPlay}" Width="12" Height="12" />
+                        <TextBlock Text="Launch" />
+                      </StackPanel>
+                    </Button>
+                    <Button MinWidth="92" IsVisible="{Binding IsAlive}"
+                            Command="{Binding StopCommand}"
+                            AutomationProperties.Name="Stop">
+                      <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                        <PathIcon Data="{StaticResource IconStop}" Width="12" Height="12" />
+                        <TextBlock Text="Stop" />
+                      </StackPanel>
+                    </Button>
+                    <Button Classes="subtle icon" Command="{Binding FocusCommand}"
+                            AutomationProperties.Name="Focus game window" ToolTip.Tip="Bring this client to the front">
+                      <PathIcon Data="{StaticResource IconFocus}" />
+                    </Button>
+                    <Button Classes="subtle icon" Command="{Binding EditCommand}"
+                            AutomationProperties.Name="Edit account" ToolTip.Tip="Edit">
+                      <PathIcon Data="{StaticResource IconEdit}" />
+                    </Button>
+                    <Button Classes="subtle icon destructive" Command="{Binding DeleteCommand}"
+                            AutomationProperties.Name="Delete account" ToolTip.Tip="Delete">
+                      <PathIcon Data="{StaticResource IconDelete}" />
+                    </Button>
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </DockPanel>
+
+    <!-- Empty state -->
+    <Border Grid.Row="1" Classes="card" IsVisible="{Binding IsEmpty}"
+            HorizontalAlignment="Center" VerticalAlignment="Center"
+            MaxWidth="460" Padding="36,32">
+      <StackPanel Spacing="12" HorizontalAlignment="Center">
+        <Border Width="56" Height="56" CornerRadius="16" HorizontalAlignment="Center"
+                Background="{DynamicResource CtpMauveSoftBrush}">
+          <PathIcon Data="{StaticResource IconAccounts}" Width="28" Height="28"
+                    Foreground="{DynamicResource CtpMauveBrush}" />
+        </Border>
+        <TextBlock Classes="h2" Text="No accounts yet" HorizontalAlignment="Center" />
+        <TextBlock Classes="caption" TextAlignment="Center"
+                   Text="Add your Wizard101 and Pirate101 logins to launch and log in to several clients with one click. Passwords are kept in Windows Credential Manager." />
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,8,0,0">
+          <Button Classes="primary" Content="Add account" Command="{Binding AddAccountCommand}" />
+          <Button Content="Import from MultiWiz 3"
+                  IsVisible="{Binding HasLegacyData}"
+                  Command="{Binding ImportLegacyCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

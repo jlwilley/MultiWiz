@@ -1,0 +1,50 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MultiWiz.App.ViewModels"
+             x:Class="MultiWiz.App.App"
+             x:DataType="vm:TrayViewModel"
+             Name="MultiWiz"
+             RequestedThemeVariant="Dark">
+
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://MultiWiz/Themes/Catppuccin.axaml" />
+        <ResourceInclude Source="avares://MultiWiz/Themes/Icons.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <!-- Catppuccin Mocha / Latte mauve accent; the rest of the palette lives in Themes/Catppuccin.axaml. -->
+        <ColorPaletteResources x:Key="Dark" Accent="#FFCBA6F7" RegionColor="#FF181825" ErrorText="#FFF38BA8" />
+        <ColorPaletteResources x:Key="Light" Accent="#FF8839EF" RegionColor="#FFE6E9EF" ErrorText="#FFD20F39" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="avares://MultiWiz/Themes/Styles.axaml" />
+  </Application.Styles>
+
+  <!-- Tray bindings resolve against Application.DataContext (the TrayViewModel set in App.Initialize). -->
+  <TrayIcon.Icons>
+    <TrayIcons>
+      <TrayIcon Icon="/Assets/multiwiz.ico"
+                ToolTipText="{Binding ToolTipText}"
+                Command="{Binding ShowMainWindowCommand}">
+        <TrayIcon.Menu>
+          <NativeMenu>
+            <NativeMenuItem Header="Show MultiWiz" Command="{Binding ShowMainWindowCommand}" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Switcher" Command="{Binding ToggleSwitcherCommand}" />
+            <NativeMenuItem Header="Command Center" Command="{Binding ToggleCommandCenterCommand}" />
+            <NativeMenuItem Header="Launch team" Menu="{Binding TeamsMenu}" />
+            <NativeMenuItem Header="Stop all clients" Command="{Binding StopAllCommand}" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Quit" Command="{Binding QuitCommand}" />
+          </NativeMenu>
+        </TrayIcon.Menu>
+      </TrayIcon>
+    </TrayIcons>
+  </TrayIcon.Icons>
+</Application>

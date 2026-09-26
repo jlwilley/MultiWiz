@@ -1,0 +1,144 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MultiWiz.App.ViewModels"
+        xmlns:pages="using:MultiWiz.App.Views.Pages"
+        x:Class="MultiWiz.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="MultiWiz"
+        Width="1080" Height="720"
+        MinWidth="840" MinHeight="560"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource CtpMantleBrush}"
+        Foreground="{DynamicResource CtpTextBrush}">
+
+  <Grid ColumnDefinitions="232,*" RowDefinitions="*,Auto">
+
+    <!-- Sidebar -->
+    <Border Grid.RowSpan="2"
+            Background="{DynamicResource CtpCrustBrush}"
+            Padding="12,20">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="12" Margin="8,0,0,28">
+          <Border Width="38" Height="38" CornerRadius="10" Background="{DynamicResource CtpMauveSoftBrush}">
+            <PathIcon Data="{StaticResource IconWand}" Width="20" Height="20"
+                      Foreground="{DynamicResource CtpMauveBrush}" />
+          </Border>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="MultiWiz" FontSize="17" FontWeight="SemiBold" />
+            <TextBlock Classes="caption" Text="Wizard101 · Pirate101" />
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Spacing="4">
+          <TextBlock Classes="eyebrow" Text="WINDOWS" Margin="12,0,0,6" />
+          <Button Classes="subtle"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,9"
+                  Command="{Binding ToggleSwitcherCommand}"
+                  ToolTip.Tip="Show or hide the compact, always-on-top switcher">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <PathIcon Data="{StaticResource IconSwitcher}" />
+              <TextBlock Text="Switcher" />
+            </StackPanel>
+          </Button>
+          <Button Classes="subtle"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,9"
+                  Command="{Binding ToggleCommandCenterCommand}"
+                  ToolTip.Tip="Show or hide live previews of every running client">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <PathIcon Data="{StaticResource IconCommandCenter}" />
+              <TextBlock Text="Command Center" />
+            </StackPanel>
+          </Button>
+          <Button Classes="subtle destructive"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,9"
+                  Command="{Binding StopAllCommand}"
+                  ToolTip.Tip="Close every running game client">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <PathIcon Data="{StaticResource IconStop}" />
+              <TextBlock Text="Stop all clients" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+
+        <ListBox Classes="nav"
+                 SelectionMode="AlwaysSelected"
+                 SelectedIndex="{Binding SelectedPageIndex}"
+                 AutomationProperties.Name="Pages">
+          <ListBoxItem AutomationProperties.Name="Accounts">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <PathIcon Data="{StaticResource IconAccounts}" />
+              <TextBlock Text="Accounts" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem AutomationProperties.Name="Teams">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <PathIcon Data="{StaticResource IconTeams}" />
+              <TextBlock Text="Teams" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem AutomationProperties.Name="Settings">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <PathIcon Data="{StaticResource IconSettings}" />
+              <TextBlock Text="Settings" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem AutomationProperties.Name="About">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <PathIcon Data="{StaticResource IconInfo}" />
+              <TextBlock Text="About" />
+            </StackPanel>
+          </ListBoxItem>
+        </ListBox>
+      </DockPanel>
+    </Border>
+
+    <!-- Current page -->
+    <ContentControl Grid.Column="1" Content="{Binding CurrentPage}">
+      <ContentControl.DataTemplates>
+        <DataTemplate DataType="vm:AccountsPageViewModel">
+          <pages:AccountsPage />
+        </DataTemplate>
+        <DataTemplate DataType="vm:TeamsPageViewModel">
+          <pages:TeamsPage />
+        </DataTemplate>
+        <DataTemplate DataType="vm:SettingsPageViewModel">
+          <pages:SettingsPage />
+        </DataTemplate>
+        <DataTemplate DataType="vm:AboutPageViewModel">
+          <pages:AboutPage />
+        </DataTemplate>
+      </ContentControl.DataTemplates>
+    </ContentControl>
+
+    <!-- Status bar -->
+    <Border Grid.Row="1" Grid.Column="1"
+            Background="{DynamicResource CtpMantleBrush}"
+            BorderBrush="{DynamicResource CtpSurface0Brush}" BorderThickness="0,1,0,0"
+            Padding="24,8">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <Border Classes="chip" Classes.ok="{Binding HasRunningClients}">
+          <TextBlock Text="{Binding RunningText}" />
+        </Border>
+
+        <TextBlock Grid.Column="1" Margin="16,0" VerticalAlignment="Center"
+                   TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                   Classes.error="{Binding Status.IsError}"
+                   IsVisible="{Binding Status.HasMessage}"
+                   Text="{Binding Status.Message}" />
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                    IsVisible="{Binding Updates.IsUpdateReady}">
+          <Border Classes="chip accent">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <PathIcon Data="{StaticResource IconDownload}" Width="12" Height="12"
+                        Foreground="{DynamicResource CtpMauveBrush}" />
+              <TextBlock Text="Update ready — restart to apply" />
+            </StackPanel>
+          </Border>
+          <Button Classes="primary" Padding="12,4" Content="Restart now"
+                  Command="{Binding RestartToUpdateCommand}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

@@ -1,0 +1,235 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MultiWiz.App.ViewModels"
+             xmlns:conv="using:MultiWiz.App.Converters"
+             xmlns:controls="using:MultiWiz.App.Views.Controls"
+             x:Class="MultiWiz.App.Views.Pages.TeamsPage"
+             x:DataType="vm:TeamsPageViewModel">
+
+  <Grid RowDefinitions="Auto,*" ColumnDefinitions="280,*" Margin="32,28,32,16">
+
+    <!-- Header -->
+    <StackPanel Grid.ColumnSpan="2" Spacing="2" Margin="0,0,0,20">
+      <TextBlock Classes="h1" Text="Teams" />
+      <TextBlock Classes="caption"
+                 Text="Launch several accounts together, arrange their windows, and give the switcher a slot order." />
+    </StackPanel>
+
+    <!-- Team list -->
+    <Border Grid.Row="1" Classes="card" Padding="12" VerticalAlignment="Stretch">
+      <DockPanel>
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="4,0,0,10">
+          <TextBlock Classes="h3" Text="Your teams" VerticalAlignment="Center" />
+          <Button Grid.Column="1" Classes="subtle icon"
+                  Command="{Binding NewTeamCommand}"
+                  AutomationProperties.Name="New team" ToolTip.Tip="New team">
+            <PathIcon Data="{StaticResource IconPlus}" />
+          </Button>
+        </Grid>
+        <TextBlock DockPanel.Dock="Top" Classes="caption" Margin="4,0,4,8"
+                   IsVisible="{Binding IsEmpty}"
+                   Text="No teams yet. Create one with the + button." />
+        <ListBox Classes="list"
+                 ItemsSource="{Binding Teams}"
+                 SelectedItem="{Binding SelectedTeam}"
+                 AutomationProperties.Name="Teams">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:TeamItemViewModel">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Classes="caption" Text="{Binding Summary}"
+                             TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <Border Grid.Column="1" Classes="chip accent" Margin="8,0,0,0" IsVisible="{Binding IsActive}">
+                  <TextBlock Text="Active" />
+                </Border>
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+
+    <!-- Nothing selected -->
+    <Border Grid.Row="1" Grid.Column="1" Classes="card" Margin="20,0,0,0" Padding="36,32"
+            VerticalAlignment="Top"
+            IsVisible="{Binding !HasEditor}">
+      <StackPanel Spacing="12" HorizontalAlignment="Center" MaxWidth="420">
+        <Border Width="56" Height="56" CornerRadius="16" HorizontalAlignment="Center"
+                Background="{DynamicResource CtpMauveSoftBrush}">
+          <PathIcon Data="{StaticResource IconTeams}" Width="28" Height="28"
+                    Foreground="{DynamicResource CtpMauveBrush}" />
+        </Border>
+        <TextBlock Classes="h2" Text="Build your first team" HorizontalAlignment="Center" />
+        <TextBlock Classes="caption" TextAlignment="Center"
+                   Text="A team is a group of accounts you play together. Launch them with one click, snap their windows into a layout, and jump between them with Alt+1, Alt+2 and so on." />
+        <Button Classes="primary" HorizontalAlignment="Center" Margin="0,8,0,0"
+                Content="New team" Command="{Binding NewTeamCommand}" />
+      </StackPanel>
+    </Border>
+
+    <!-- Editor -->
+    <ScrollViewer Grid.Row="1" Grid.Column="1" Margin="20,0,0,0"
+                  HorizontalScrollBarVisibility="Disabled"
+                  IsVisible="{Binding HasEditor}">
+      <StackPanel Spacing="16" Margin="0,0,8,0">
+
+        <Border Classes="card">
+          <StackPanel Spacing="14">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Text="{Binding Editor.Name}" FontSize="18" MaxLength="60"
+                       PlaceholderText="Team name"
+                       AutomationProperties.Name="Team name" />
+              <Border Grid.Column="1" Classes="chip accent" Margin="12,0,0,0"
+                      IsVisible="{Binding IsEditorTeamActive}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <PathIcon Data="{StaticResource IconStar}" Width="12" Height="12"
+                            Foreground="{DynamicResource CtpMauveBrush}" />
+                  <TextBlock Text="Active in switcher" />
+                </StackPanel>
+              </Border>
+            </Grid>
+            <WrapPanel>
+              <Button Classes="primary" Margin="0,0,8,8" Command="{Binding LaunchTeamCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{StaticResource IconPlay}" Width="12" Height="12" />
+                  <TextBlock Text="Launch team" />
+                </StackPanel>
+              </Button>
+              <Button Margin="0,0,8,8" Command="{Binding ArrangeNowCommand}"
+                      ToolTip.Tip="Move the team's running windows into the layout now">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{StaticResource IconArrange}" Width="14" Height="14" />
+                  <TextBlock Text="Arrange now" />
+                </StackPanel>
+              </Button>
+              <Button Margin="0,0,8,8" Command="{Binding ToggleActiveCommand}"
+                      ToolTip.Tip="The switcher and the slot hotkeys follow the active team's order">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{StaticResource IconStar}" Width="14" Height="14" />
+                  <TextBlock Text="{Binding ActiveButtonText}" />
+                </StackPanel>
+              </Button>
+              <Button Classes="subtle destructive" Margin="0,0,8,8" Command="{Binding DeleteTeamCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{StaticResource IconDelete}" Width="14" Height="14" />
+                  <TextBlock Text="Delete team" />
+                </StackPanel>
+              </Button>
+            </WrapPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="12">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="h3" Text="Accounts and slots" />
+                <TextBlock Classes="caption"
+                           Text="While this team is active, slot 1 is focused by the first slot hotkey (Alt+1 by default), slot 2 by the second, and so on." />
+              </StackPanel>
+              <TextBlock Grid.Column="1" Classes="caption" Margin="16,0,0,0" Text="{Binding Editor.SlotSummary}" />
+            </Grid>
+
+            <ItemsControl ItemsSource="{Binding Editor.Slots}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:TeamSlotViewModel">
+                  <Border Background="{DynamicResource CtpMantleBrush}" CornerRadius="8" Padding="10,6" Margin="0,0,0,6">
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                      <Border Classes="slot">
+                        <TextBlock Text="{Binding SlotNumber}" />
+                      </Border>
+                      <Border Grid.Column="1" Classes="dot" Margin="12,0"
+                              Background="{Binding AccentColor, Converter={x:Static conv:AppConverters.AccentBrush}}" />
+                      <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="caption" Text="{Binding Detail}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                        <Button Classes="subtle icon" Command="{Binding MoveUpCommand}"
+                                AutomationProperties.Name="Move up" ToolTip.Tip="Move up">
+                          <PathIcon Data="{StaticResource IconChevronUp}" />
+                        </Button>
+                        <Button Classes="subtle icon" Command="{Binding MoveDownCommand}"
+                                AutomationProperties.Name="Move down" ToolTip.Tip="Move down">
+                          <PathIcon Data="{StaticResource IconChevronDown}" />
+                        </Button>
+                        <Button Classes="subtle icon destructive" Command="{Binding RemoveCommand}"
+                                AutomationProperties.Name="Remove from team" ToolTip.Tip="Remove from team">
+                          <PathIcon Data="{StaticResource IconClose}" />
+                        </Button>
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Classes="caption" IsVisible="{Binding !Editor.HasSlots}"
+                       Text="Add the accounts you play together. Their order here is the slot order." />
+
+            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding Editor.HasAvailableAccounts}">
+              <ComboBox HorizontalAlignment="Stretch"
+                        ItemsSource="{Binding Editor.AvailableAccounts}"
+                        SelectedItem="{Binding Editor.AccountToAdd}"
+                        PlaceholderText="Choose an account"
+                        AutomationProperties.Name="Account to add" />
+              <Button Grid.Column="1" Margin="8,0,0,0" Command="{Binding Editor.AddSlotCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" />
+                  <TextBlock Text="Add to team" />
+                </StackPanel>
+              </Button>
+            </Grid>
+            <TextBlock Classes="caption" IsVisible="{Binding !Editor.HasAvailableAccounts}"
+                       Text="Every account is already in this team. Add more on the Accounts page." />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="12">
+            <StackPanel Spacing="2">
+              <TextBlock Classes="h3" Text="Window layout" />
+              <TextBlock Classes="caption"
+                         Text="Where the team's windows go when it launches or when you press Arrange now. Slots fill the cells in order; extra windows reuse them." />
+            </StackPanel>
+
+            <ListBox Classes="tiles"
+                     ItemsSource="{Binding Editor.Layouts}"
+                     SelectedItem="{Binding Editor.SelectedLayout}"
+                     AutomationProperties.Name="Window layout">
+              <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ListBox.ItemsPanel>
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:LayoutOption">
+                  <StackPanel Width="136" Spacing="6">
+                    <controls:LayoutPreview Layout="{Binding Layout}" Height="64"
+                                            Fill="{DynamicResource CtpMauveSoftBrush}"
+                                            Stroke="{DynamicResource CtpMauveBrush}"
+                                            ScreenBrush="{DynamicResource CtpSurface0Brush}" />
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="caption" Text="{Binding Description}" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Grid ColumnDefinitions="*,Auto" IsEnabled="{Binding Editor.CanResize}">
+              <StackPanel Spacing="2" VerticalAlignment="Center">
+                <TextBlock Classes="setting-title" Text="Resize windows to fit" />
+                <TextBlock Classes="caption" Text="When off, windows are moved into place but keep their current size." />
+              </StackPanel>
+              <ToggleSwitch Grid.Column="1" OnContent="" OffContent=""
+                            IsChecked="{Binding Editor.ResizeWindows}"
+                            AutomationProperties.Name="Resize windows to fit" />
+            </Grid>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

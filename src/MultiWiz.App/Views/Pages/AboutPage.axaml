@@ -1,0 +1,90 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MultiWiz.App.ViewModels"
+             x:Class="MultiWiz.App.Views.Pages.AboutPage"
+             x:DataType="vm:AboutPageViewModel">
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="32,28,32,24" Spacing="16" MaxWidth="860" HorizontalAlignment="Left">
+      <StackPanel Spacing="2">
+        <TextBlock Classes="h1" Text="About" />
+        <TextBlock Classes="caption" Text="A multi-account launcher and multiboxing helper for Wizard101 and Pirate101." />
+      </StackPanel>
+
+      <Border Classes="card">
+        <Grid ColumnDefinitions="Auto,*">
+          <Border Width="64" Height="64" CornerRadius="16" VerticalAlignment="Top"
+                  Background="{DynamicResource CtpMauveSoftBrush}">
+            <PathIcon Data="{StaticResource IconWand}" Width="32" Height="32"
+                      Foreground="{DynamicResource CtpMauveBrush}" />
+          </Border>
+          <StackPanel Grid.Column="1" Margin="20,0,0,0" Spacing="4">
+            <TextBlock Classes="h2" Text="MultiWiz" />
+            <TextBlock Text="{Binding Version}" FontWeight="Medium" />
+            <TextBlock Classes="caption" Text="{Binding InstallKind}" />
+            <WrapPanel Margin="0,12,0,0">
+              <Button Margin="0,0,8,8" Command="{Binding OpenRepositoryCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{StaticResource IconOpenExternal}" Width="14" Height="14" />
+                  <TextBlock Text="Project on GitHub" />
+                </StackPanel>
+              </Button>
+              <Button Margin="0,0,8,8" Command="{Binding OpenReleasesCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{StaticResource IconOpenExternal}" Width="14" Height="14" />
+                  <TextBlock Text="Release notes" />
+                </StackPanel>
+              </Button>
+              <Button Margin="0,0,8,8" Command="{Binding OpenIssuesCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{StaticResource IconOpenExternal}" Width="14" Height="14" />
+                  <TextBlock Text="Report a problem" />
+                </StackPanel>
+              </Button>
+            </WrapPanel>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="h3" Text="Troubleshooting" />
+          <TextBlock Classes="caption"
+                     Text="MultiWiz keeps a log of the last 7 days. Attach it when you report a problem; it never contains your passwords." />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="caption" Text="{Binding LogFolder}" VerticalAlignment="Center"
+                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+            <Button Grid.Column="1" Margin="12,0,0,0" Command="{Binding OpenLogFolderCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" />
+                <TextBlock Text="Open log folder" />
+              </StackPanel>
+            </Button>
+          </Grid>
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="caption" Text="{Binding DataFolder}" VerticalAlignment="Center"
+                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+            <Button Grid.Column="1" Margin="12,0,0,0" Command="{Binding OpenDataFolderCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" />
+                <TextBlock Text="Open data folder" />
+              </StackPanel>
+            </Button>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="h3" Text="Legal" />
+          <TextBlock TextWrapping="Wrap"
+                     Text="MultiWiz is an unofficial, fan-made tool. It is not affiliated with, endorsed by, or sponsored by KingsIsle Entertainment, Inc. Wizard101 and Pirate101 are trademarks of KingsIsle Entertainment, Inc." />
+          <TextBlock Classes="caption"
+                     Text="MultiWiz never modifies the game: it does not change game files, write to game memory, inject code, or automate gameplay. It starts clients, types your saved login into the login screen, and uses standard Windows features to move windows, set volumes and switch focus. Use it at your own risk and follow the game's terms of service." />
+          <TextBlock Classes="caption"
+                     Text="Colours from Catppuccin (MIT). Icons from Material Design Icons (Apache 2.0)." />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -366,3 +366,7 @@ config.txt
 
 !Deployment/**
 /Deployment/
+
+# MultiWiz v4 build, packaging and test output
+# (publish/, [Rr]eleases/, [Tt]est[Rr]esult*/ and .vs/ are already covered above)
+*.trx

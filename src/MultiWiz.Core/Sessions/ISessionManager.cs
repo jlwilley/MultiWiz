@@ -14,6 +14,7 @@ public interface ISessionManager
     /// Starts the account's client (no-op returning the existing session if it is already alive) and, if
     /// auto-login is on, types its credentials. Completes when the session reaches Running, Failed, or Exited.
     /// Never throws for launch/login problems; they are reported as a Failed session.
+    /// Client processes start at least <see cref="Settings.LoginSettings.StaggerSeconds"/> apart, across all launches.
     /// </summary>
     Task<ClientSession> LaunchAsync(Guid accountId, CancellationToken cancellationToken = default);
 

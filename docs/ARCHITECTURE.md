@@ -369,8 +369,9 @@ override it).
 
 ## Build, test, and release
 
-- `dotnet build MultiWiz.slnx -c Release` and `dotnet test MultiWiz.slnx -c Release` on windows-latest
-  (`ci.yml`, every push and PR). CI also runs a `dotnet publish` of the app for `win-x64`.
+- `dotnet build MultiWiz.slnx -c Release` and `dotnet test --solution MultiWiz.slnx -c Release`
+  (Microsoft.Testing.Platform mode, selected in `global.json`) on windows-latest (`ci.yml`, every push
+  and PR). CI also runs a `dotnet publish` of the app for `win-x64`.
 - Releases are created only by pushing a tag: `v4.1.0` → stable (default `win` channel, normal
   release); `v4.1.0-beta.1` → beta (`beta` channel, GitHub pre-release). See `docs/RELEASING.md`.
 - Code signing uses Azure Artifact Signing when the repository has the signing variables/secrets

@@ -1,0 +1,74 @@
+<!--
+  Catppuccin palette (https://catppuccin.com, MIT licence): Mocha for the dark theme, Latte for the light theme.
+  Surfaces: sidebar = crust, window = mantle, cards = base, borders = surface0.
+  Always reference these with DynamicResource so they follow the theme variant.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ResourceDictionary.ThemeDictionaries>
+
+    <ResourceDictionary x:Key="Dark">
+      <SolidColorBrush x:Key="CtpCrustBrush" Color="#11111B" />
+      <SolidColorBrush x:Key="CtpMantleBrush" Color="#181825" />
+      <SolidColorBrush x:Key="CtpBaseBrush" Color="#1E1E2E" />
+      <SolidColorBrush x:Key="CtpSurface0Brush" Color="#313244" />
+      <SolidColorBrush x:Key="CtpSurface1Brush" Color="#45475A" />
+      <SolidColorBrush x:Key="CtpSurface2Brush" Color="#585B70" />
+      <SolidColorBrush x:Key="CtpOverlayBrush" Color="#7F849C" />
+      <SolidColorBrush x:Key="CtpSubtextBrush" Color="#A6ADC8" />
+      <SolidColorBrush x:Key="CtpTextBrush" Color="#CDD6F4" />
+
+      <SolidColorBrush x:Key="CtpMauveBrush" Color="#CBA6F7" />
+      <SolidColorBrush x:Key="CtpMauveHoverBrush" Color="#D8BCFA" />
+      <SolidColorBrush x:Key="CtpMauvePressedBrush" Color="#B690EC" />
+      <SolidColorBrush x:Key="CtpMauveSoftBrush" Color="#33CBA6F7" />
+      <SolidColorBrush x:Key="CtpOnMauveBrush" Color="#11111B" />
+
+      <SolidColorBrush x:Key="CtpGreenBrush" Color="#A6E3A1" />
+      <SolidColorBrush x:Key="CtpGreenSoftBrush" Color="#29A6E3A1" />
+      <SolidColorBrush x:Key="CtpYellowBrush" Color="#F9E2AF" />
+      <SolidColorBrush x:Key="CtpYellowSoftBrush" Color="#29F9E2AF" />
+      <SolidColorBrush x:Key="CtpRedBrush" Color="#F38BA8" />
+      <SolidColorBrush x:Key="CtpRedHoverBrush" Color="#F5A3BA" />
+      <SolidColorBrush x:Key="CtpRedSoftBrush" Color="#29F38BA8" />
+      <SolidColorBrush x:Key="CtpOnRedBrush" Color="#11111B" />
+      <SolidColorBrush x:Key="CtpBlueBrush" Color="#89B4FA" />
+      <SolidColorBrush x:Key="CtpBlueSoftBrush" Color="#2989B4FA" />
+    </ResourceDictionary>
+
+    <ResourceDictionary x:Key="Light">
+      <SolidColorBrush x:Key="CtpCrustBrush" Color="#DCE0E8" />
+      <SolidColorBrush x:Key="CtpMantleBrush" Color="#E6E9EF" />
+      <SolidColorBrush x:Key="CtpBaseBrush" Color="#EFF1F5" />
+      <SolidColorBrush x:Key="CtpSurface0Brush" Color="#CCD0DA" />
+      <SolidColorBrush x:Key="CtpSurface1Brush" Color="#BCC0CC" />
+      <SolidColorBrush x:Key="CtpSurface2Brush" Color="#ACB0BE" />
+      <SolidColorBrush x:Key="CtpOverlayBrush" Color="#8C8FA1" />
+      <SolidColorBrush x:Key="CtpSubtextBrush" Color="#6C6F85" />
+      <SolidColorBrush x:Key="CtpTextBrush" Color="#4C4F69" />
+
+      <SolidColorBrush x:Key="CtpMauveBrush" Color="#8839EF" />
+      <SolidColorBrush x:Key="CtpMauveHoverBrush" Color="#9A55F2" />
+      <SolidColorBrush x:Key="CtpMauvePressedBrush" Color="#7527D6" />
+      <SolidColorBrush x:Key="CtpMauveSoftBrush" Color="#268839EF" />
+      <SolidColorBrush x:Key="CtpOnMauveBrush" Color="#EFF1F5" />
+
+      <SolidColorBrush x:Key="CtpGreenBrush" Color="#40A02B" />
+      <SolidColorBrush x:Key="CtpGreenSoftBrush" Color="#2640A02B" />
+      <SolidColorBrush x:Key="CtpYellowBrush" Color="#DF8E1D" />
+      <SolidColorBrush x:Key="CtpYellowSoftBrush" Color="#26DF8E1D" />
+      <SolidColorBrush x:Key="CtpRedBrush" Color="#D20F39" />
+      <SolidColorBrush x:Key="CtpRedHoverBrush" Color="#E0284F" />
+      <SolidColorBrush x:Key="CtpRedSoftBrush" Color="#26D20F39" />
+      <SolidColorBrush x:Key="CtpOnRedBrush" Color="#EFF1F5" />
+      <SolidColorBrush x:Key="CtpBlueBrush" Color="#1E66F5" />
+      <SolidColorBrush x:Key="CtpBlueSoftBrush" Color="#261E66F5" />
+    </ResourceDictionary>
+
+  </ResourceDictionary.ThemeDictionaries>
+
+  <!-- Name badges sit on top of the game, so they keep the same dark look in both themes. -->
+  <SolidColorBrush x:Key="BadgeBackgroundBrush" Color="#E611111B" />
+  <SolidColorBrush x:Key="BadgeForegroundBrush" Color="#CDD6F4" />
+  <SolidColorBrush x:Key="BadgeBorderBrush" Color="#66585B70" />
+</ResourceDictionary>

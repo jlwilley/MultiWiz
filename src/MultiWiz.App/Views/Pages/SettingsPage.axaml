@@ -1,0 +1,539 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MultiWiz.App.ViewModels"
+             xmlns:conv="using:MultiWiz.App.Converters"
+             x:Class="MultiWiz.App.Views.Pages.SettingsPage"
+             x:DataType="vm:SettingsPageViewModel">
+
+  <UserControl.Styles>
+    <Style Selector="Grid.setting">
+      <Setter Property="Margin" Value="0,4" />
+    </Style>
+    <Style Selector="Grid.setting > StackPanel">
+      <Setter Property="Spacing" Value="2" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,0,24,0" />
+    </Style>
+    <Style Selector="StackPanel.section">
+      <Setter Property="Spacing" Value="16" />
+      <Setter Property="Margin" Value="0,16,12,16" />
+      <Setter Property="MaxWidth" Value="860" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+    <Style Selector="Button.hotkey">
+      <Setter Property="MinWidth" Value="200" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="FontFamily" Value="Consolas, Cascadia Mono, monospace" />
+    </Style>
+    <Style Selector="Button.hotkey.capturing">
+      <Setter Property="BorderBrush" Value="{DynamicResource CtpMauveBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*" Margin="32,28,32,0">
+    <StackPanel Spacing="2" Margin="0,0,0,8">
+      <TextBlock Classes="h1" Text="Settings" />
+      <TextBlock Classes="caption" Text="Changes are saved automatically." />
+    </StackPanel>
+
+    <TabControl Grid.Row="1" Classes="sections" Padding="0">
+
+      <!-- General -->
+      <TabItem Header="General">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Classes="section">
+            <Border Classes="card">
+              <StackPanel>
+                <TextBlock Classes="h3" Text="Appearance" Margin="0,0,0,8" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Theme" />
+                    <TextBlock Classes="caption" Text="Catppuccin Mocha for dark, Latte for light." />
+                  </StackPanel>
+                  <ComboBox Grid.Column="1" MinWidth="240"
+                            ItemsSource="{Binding ThemeOptions}"
+                            SelectedItem="{Binding SelectedTheme}"
+                            AutomationProperties.Name="Theme" />
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+              <StackPanel>
+                <TextBlock Classes="h3" Text="Tray and exit" Margin="0,0,0,8" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Minimize to the tray" />
+                    <TextBlock Classes="caption" Text="Minimizing hides MultiWiz in the notification area instead of the taskbar." />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding MinimizeToTray}"
+                                AutomationProperties.Name="Minimize to the tray" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Close to the tray" />
+                    <TextBlock Classes="caption" Text="The close button hides the window; quit from the tray icon." />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding CloseToTray}"
+                                AutomationProperties.Name="Close to the tray" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Close game clients when MultiWiz exits" />
+                    <TextBlock Classes="caption" Text="Off: clients keep running after you quit MultiWiz." />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding CloseGamesOnExit}"
+                                AutomationProperties.Name="Close game clients when MultiWiz exits" />
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+              <StackPanel>
+                <TextBlock Classes="h3" Text="Updates" Margin="0,0,0,8" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Check for updates automatically" />
+                    <TextBlock Classes="caption" Text="On startup and every 6 hours. Updates download in the background and install when you restart." />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding CheckForUpdates}"
+                                AutomationProperties.Name="Check for updates automatically" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Update channel" />
+                    <TextBlock Classes="caption" Text="Beta gets new features first and may be less stable. Beta also offers stable releases when they are newer." />
+                  </StackPanel>
+                  <ComboBox Grid.Column="1" MinWidth="240"
+                            ItemsSource="{Binding ChannelOptions}"
+                            SelectedItem="{Binding SelectedChannel}"
+                            AutomationProperties.Name="Update channel" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                  <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Classes="setting-title" Text="{Binding VersionText}" />
+                    <TextBlock Classes="caption" Text="{Binding Updates.StatusText}" />
+                  </StackPanel>
+                  <Button Grid.Column="1" Margin="12,0,0,0"
+                          IsEnabled="{Binding Updates.IsInstalled}"
+                          IsVisible="{Binding !Updates.IsUpdateReady}"
+                          Command="{Binding CheckForUpdatesNowCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <PathIcon Data="{StaticResource IconRefresh}" Width="14" Height="14" />
+                      <TextBlock Text="Check now" />
+                    </StackPanel>
+                  </Button>
+                  <Button Grid.Column="2" Classes="primary" Margin="8,0,0,0"
+                          IsVisible="{Binding Updates.IsUpdateReady}"
+                          Content="Restart to update"
+                          Command="{Binding RestartToUpdateCommand}" />
+                </Grid>
+                <ProgressBar Margin="0,10,0,0" Minimum="0" Maximum="100"
+                             Value="{Binding Updates.DownloadProgress, Mode=OneWay}"
+                             IsVisible="{Binding Updates.IsBusy}" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- Login -->
+      <TabItem Header="Login">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Classes="section">
+            <Border Classes="card">
+              <StackPanel>
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Log in automatically" />
+                    <TextBlock Classes="caption" Text="Types the username and password into each client's login screen. One client is typed into at a time." />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding AutoLogin}"
+                                AutomationProperties.Name="Log in automatically" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto" IsEnabled="{Binding AutoLogin}">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Wait before typing (seconds)" />
+                    <TextBlock Classes="caption" Text="Time after the game window appears before the login is typed. Raise it on slower PCs." />
+                  </StackPanel>
+                  <NumericUpDown Grid.Column="1" Width="140" Minimum="0" Maximum="60" Increment="1" FormatString="0"
+                                 Value="{Binding ReadyDelaySeconds}"
+                                 AutomationProperties.Name="Wait before typing in seconds" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto" IsEnabled="{Binding AutoLogin}">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Delay between keystrokes (ms)" />
+                    <TextBlock Classes="caption" Text="Slow this down if characters go missing from the password." />
+                  </StackPanel>
+                  <NumericUpDown Grid.Column="1" Width="140" Minimum="0" Maximum="250" Increment="5" FormatString="0"
+                                 Value="{Binding KeystrokeDelayMs}"
+                                 AutomationProperties.Name="Delay between keystrokes in milliseconds" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Give up after (seconds)" />
+                    <TextBlock Classes="caption" Text="A launch fails if the game window hasn't appeared by then." />
+                  </StackPanel>
+                  <NumericUpDown Grid.Column="1" Width="140" Minimum="10" Maximum="600" Increment="10" FormatString="0"
+                                 Value="{Binding WindowTimeoutSeconds}"
+                                 AutomationProperties.Name="Give up after seconds" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Time between clients (seconds)" />
+                    <TextBlock Classes="caption" Text="When launching several accounts, start each client this long after the previous one." />
+                  </StackPanel>
+                  <NumericUpDown Grid.Column="1" Width="140" Minimum="0" Maximum="60" Increment="1" FormatString="0"
+                                 Value="{Binding StaggerSeconds}"
+                                 AutomationProperties.Name="Time between clients in seconds" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto" IsEnabled="{Binding AutoLogin}">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Bring MultiWiz back after logging in" />
+                    <TextBlock Classes="caption" Text="Returns to MultiWiz once a client's login has been typed." />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding RefocusAfterLogin}"
+                                AutomationProperties.Name="Bring MultiWiz back after logging in" />
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- Audio -->
+      <TabItem Header="Audio">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Classes="section">
+            <Border Classes="card">
+              <StackPanel>
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Adjust volume when switching clients" />
+                    <TextBlock Classes="caption" Text="Only the client in front plays at full volume. Uses each client's own Windows audio session." />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding AudioEnabled}"
+                                AutomationProperties.Name="Adjust volume when switching clients" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,260,56" IsEnabled="{Binding AudioEnabled}">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Focused client" />
+                    <TextBlock Classes="caption" Text="Volume of the client you're playing." />
+                  </StackPanel>
+                  <Slider Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True"
+                          Value="{Binding FocusedVolume}"
+                          AutomationProperties.Name="Focused client volume" />
+                  <TextBlock Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right"
+                             Text="{Binding FocusedVolume, Converter={x:Static conv:AppConverters.WholePercent}}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,260,56" IsEnabled="{Binding AudioEnabled}">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Background clients" />
+                    <TextBlock Classes="caption" Text="0% mutes them; anything higher just turns them down." />
+                  </StackPanel>
+                  <Slider Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True"
+                          Value="{Binding UnfocusedVolume}"
+                          AutomationProperties.Name="Background clients volume" />
+                  <TextBlock Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right"
+                             Text="{Binding UnfocusedVolume, Converter={x:Static conv:AppConverters.WholePercent}}" />
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- Switcher and overlays -->
+      <TabItem Header="Switcher">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Classes="section">
+            <Border Classes="card">
+              <StackPanel>
+                <TextBlock Classes="h3" Text="Switcher" Margin="0,0,0,8" />
+                <Grid Classes="setting" ColumnDefinitions="*,260,56">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Opacity" />
+                    <TextBlock Classes="caption" Text="How see-through the switcher window is." />
+                  </StackPanel>
+                  <Slider Grid.Column="1" Minimum="0.2" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True"
+                          Value="{Binding SwitcherOpacity}"
+                          AutomationProperties.Name="Switcher opacity" />
+                  <TextBlock Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right"
+                             Text="{Binding SwitcherOpacity, Converter={x:Static conv:AppConverters.Percent}}" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Show when a team launches" />
+                    <TextBlock Classes="caption" Text="Opens the switcher automatically when you launch a team." />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding ShowSwitcherOnTeamLaunch}"
+                                AutomationProperties.Name="Show the switcher when a team launches" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Don't steal focus" />
+                    <TextBlock Classes="caption" Text="Clicking the switcher leaves the keyboard with your game." />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding DoNotStealFocus}"
+                                AutomationProperties.Name="Don't steal focus" />
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+              <StackPanel>
+                <TextBlock Classes="h3" Text="Overlays" Margin="0,0,0,8" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Name badges" />
+                    <TextBlock Classes="caption" Text="A small click-through label with the slot number and account name on each game window." />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding ShowNameBadges}"
+                                AutomationProperties.Name="Name badges" />
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- Performance -->
+      <TabItem Header="Performance">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Classes="section">
+            <Border Classes="card">
+              <StackPanel>
+                <TextBlock Classes="caption" Margin="0,0,0,8"
+                           Text="These only use standard Windows process settings for clients in the background, and are undone when a client comes to the front or MultiWiz exits." />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Efficiency mode for background clients" />
+                    <TextBlock Classes="caption" Text="Windows 11 EcoQoS: background clients use less power and run cooler." />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding EfficiencyMode}"
+                                AutomationProperties.Name="Efficiency mode for background clients" />
+                </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Lower priority for background clients" />
+                    <TextBlock Classes="caption" Text="Gives the client you're playing first call on the CPU." />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding LowerPriority}"
+                                AutomationProperties.Name="Lower priority for background clients" />
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- Hotkeys -->
+      <TabItem Header="Hotkeys">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Classes="section">
+            <Border Classes="card">
+              <StackPanel>
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Global hotkeys" />
+                    <TextBlock Classes="caption" Text="Work everywhere, even while a game has focus. Click a box, then press the combination you want." />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding HotkeysEnabled}"
+                                AutomationProperties.Name="Global hotkeys" />
+                </Grid>
+
+                <Border Classes="card" Margin="0,12,0,4" Padding="12,8"
+                        Background="{DynamicResource CtpYellowSoftBrush}" BorderThickness="0"
+                        IsVisible="{Binding HasHotkeyFailures}">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <PathIcon Data="{StaticResource IconWarning}" Foreground="{DynamicResource CtpYellowBrush}" />
+                    <TextBlock TextWrapping="Wrap" VerticalAlignment="Center"
+                               Text="Some combinations are used by another program. Pick different keys for the marked rows." />
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="divider" />
+
+                <ItemsControl ItemsSource="{Binding HotkeyRows}" IsEnabled="{Binding HotkeysEnabled}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:HotkeyRowViewModel">
+                      <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,3">
+                        <StackPanel Spacing="1" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Label}" />
+                          <TextBlock Classes="caption" Text="{Binding CaptureHint}" IsVisible="{Binding IsCapturing}" />
+                        </StackPanel>
+                        <PathIcon Grid.Column="1" Data="{StaticResource IconWarning}" Margin="0,0,10,0"
+                                  Foreground="{DynamicResource CtpYellowBrush}"
+                                  IsVisible="{Binding HasFailed}"
+                                  ToolTip.Tip="Another program already uses this combination." />
+                        <Button Grid.Column="2" Classes="hotkey"
+                                Classes.capturing="{Binding IsCapturing}"
+                                Content="{Binding DisplayText}"
+                                Command="{Binding ToggleCaptureCommand}"
+                                AutomationProperties.Name="{Binding Label}"
+                                ToolTip.Tip="Click, then press a key combination. Esc cancels, Backspace clears." />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border Classes="divider" />
+                <Button HorizontalAlignment="Left" Content="Reset to defaults" Command="{Binding ResetHotkeysCommand}" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- Games -->
+      <TabItem Header="Games">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Classes="section">
+            <Border Classes="card">
+              <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="h3" Text="Game installs" />
+                    <TextBlock Classes="caption" Text="Found automatically from the KingsIsle installer and Steam. Add a folder if yours isn't listed." />
+                  </StackPanel>
+                  <Button Grid.Column="1" Classes="subtle icon" Margin="12,0,8,0" VerticalAlignment="Top"
+                          Command="{Binding RescanInstallsCommand}"
+                          AutomationProperties.Name="Search again" ToolTip.Tip="Search again">
+                    <PathIcon Data="{StaticResource IconRefresh}" />
+                  </Button>
+                  <Button Grid.Column="2" VerticalAlignment="Top" Command="{Binding AddGameFolderCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" />
+                      <TextBlock Text="Add game folder…" />
+                    </StackPanel>
+                  </Button>
+                </Grid>
+
+                <ItemsControl ItemsSource="{Binding InstallItems}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:InstallItemViewModel">
+                      <Border Background="{DynamicResource CtpMantleBrush}" CornerRadius="8" Padding="12,8" Margin="0,0,0,6">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                          <StackPanel Spacing="2">
+                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                            <TextBlock Classes="caption" Text="{Binding RootPath}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                          </StackPanel>
+                          <Border Grid.Column="1" Classes="chip info" Margin="12,0,8,0">
+                            <TextBlock Text="{Binding Source}" />
+                          </Border>
+                          <Button Grid.Column="2" Classes="subtle icon destructive"
+                                  IsVisible="{Binding IsCustom}"
+                                  Command="{Binding RemoveCommand}"
+                                  AutomationProperties.Name="Remove this folder" ToolTip.Tip="Remove this folder">
+                            <PathIcon Data="{StaticResource IconDelete}" />
+                          </Button>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border Background="{DynamicResource CtpYellowSoftBrush}" CornerRadius="8" Padding="12,8"
+                        IsVisible="{Binding !HasInstalls}">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <PathIcon Data="{StaticResource IconWarning}" Foreground="{DynamicResource CtpYellowBrush}" />
+                    <TextBlock TextWrapping="Wrap" VerticalAlignment="Center"
+                               Text="No Wizard101 or Pirate101 install was found. Use Add game folder… to point MultiWiz at yours." />
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+              <StackPanel Spacing="8">
+                <TextBlock Classes="h3" Text="Preferred install" />
+                <TextBlock Classes="caption" Text="Used by accounts whose install is set to Automatic." />
+                <ItemsControl ItemsSource="{Binding PreferredInstalls}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PreferredInstallViewModel">
+                      <Grid ColumnDefinitions="*,Auto" Margin="0,4">
+                        <TextBlock Classes="setting-title" Text="{Binding Label}" VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1" MinWidth="320"
+                                  ItemsSource="{Binding Options}"
+                                  SelectedItem="{Binding Selected}"
+                                  IsEnabled="{Binding HasChoices}"
+                                  AutomationProperties.Name="{Binding Label}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+              <StackPanel Spacing="12">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="h3" Text="Custom realms" />
+                  <TextBlock Classes="caption" Text="Extra login servers (for example a test realm) that accounts can use. The built-in US, EU and Test realms are always available." />
+                </StackPanel>
+
+                <ItemsControl ItemsSource="{Binding CustomRealms}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RealmItemViewModel">
+                      <Border Background="{DynamicResource CtpMantleBrush}" CornerRadius="8" Padding="12,8" Margin="0,0,0,6">
+                        <Grid ColumnDefinitions="*,Auto">
+                          <StackPanel Spacing="2">
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                            <TextBlock Classes="caption" Text="{Binding Detail}" />
+                          </StackPanel>
+                          <Button Grid.Column="1" Classes="subtle icon destructive"
+                                  Command="{Binding RemoveCommand}"
+                                  AutomationProperties.Name="Remove realm" ToolTip.Tip="Remove realm">
+                            <PathIcon Data="{StaticResource IconDelete}" />
+                          </Button>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Grid ColumnDefinitions="2*,Auto,2*,Auto,Auto">
+                  <TextBox Text="{Binding NewRealmName}" PlaceholderText="Name" MaxLength="40"
+                           AutomationProperties.Name="New realm name" />
+                  <ComboBox Grid.Column="1" Margin="8,0,0,0" MinWidth="130"
+                            ItemsSource="{Binding Games}"
+                            SelectedItem="{Binding NewRealmGame}"
+                            AutomationProperties.Name="New realm game" />
+                  <TextBox Grid.Column="2" Margin="8,0,0,0" Text="{Binding NewRealmHost}"
+                           PlaceholderText="Login host" MaxLength="255"
+                           AutomationProperties.Name="New realm login host" />
+                  <NumericUpDown Grid.Column="3" Margin="8,0,0,0" Width="120"
+                                 Minimum="1" Maximum="65535" Increment="1" FormatString="0"
+                                 Value="{Binding NewRealmPort}"
+                                 AutomationProperties.Name="New realm port" />
+                  <Button Grid.Column="4" Margin="8,0,0,0" Command="{Binding AddRealmCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" />
+                      <TextBlock Text="Add" />
+                    </StackPanel>
+                  </Button>
+                </Grid>
+                <TextBlock Classes="error" Text="{Binding RealmError}" IsVisible="{Binding HasRealmError}" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+  </Grid>
+</UserControl>
