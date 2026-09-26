@@ -37,8 +37,8 @@ public sealed partial class AccountItemViewModel : ObservableObject
     public partial bool IsSelected { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsAlive), nameof(IsRunning), nameof(IsBusy), nameof(IsFailed), nameof(StatusText), nameof(CanFocus))]
-    [NotifyCanExecuteChangedFor(nameof(FocusCommand))]
+    [NotifyPropertyChangedFor(nameof(IsAlive), nameof(IsRunning), nameof(IsBusy), nameof(IsFailed), nameof(IsWarning), nameof(StatusText), nameof(CanFocus))]
+    [NotifyCanExecuteChangedFor(nameof(FocusCommand), nameof(RetypeLoginCommand))]
     public partial ClientSessionState? State { get; private set; }
 
     [ObservableProperty]
@@ -47,7 +47,7 @@ public sealed partial class AccountItemViewModel : ObservableObject
     public partial bool HasWindow { get; private set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusToolTip))]
+    [NotifyPropertyChangedFor(nameof(StatusToolTip), nameof(IsWarning))]
     public partial string? ErrorText { get; private set; }
 
     [ObservableProperty]
@@ -67,6 +67,9 @@ public sealed partial class AccountItemViewModel : ObservableObject
 
     public bool IsFailed => State == ClientSessionState.Failed;
 
+    /// <summary>Running, but something needs attention (for example the login wasn't typed).</summary>
+    public bool IsWarning => IsRunning && ErrorText is not null;
+
     public bool CanFocus => IsAlive && HasWindow;
 
     public string StatusText => State switch
@@ -75,7 +78,7 @@ public sealed partial class AccountItemViewModel : ObservableObject
         ClientSessionState.WaitingForWindow => "Opening",
         ClientSessionState.WaitingForReady => "Loading",
         ClientSessionState.LoggingIn => "Logging in",
-        ClientSessionState.Running => "Running",
+        ClientSessionState.Running => ErrorText is null ? "Running" : "Log in needed",
         ClientSessionState.Failed => "Failed",
         _ => "Idle",
     };
@@ -103,7 +106,13 @@ public sealed partial class AccountItemViewModel : ObservableObject
 
         State = session.State;
         HasWindow = session.HasWindow;
-        ErrorText = session.State == ClientSessionState.Failed ? session.Error ?? "The client could not be started." : null;
+        ErrorText = session.State switch
+        {
+            ClientSessionState.Failed => session.Error ?? "The client could not be started.",
+            ClientSessionState.Running => session.Error,
+            _ => null,
+        };
+        OnPropertyChanged(nameof(StatusText));
     }
 
     partial void OnIsSelectedChanged(bool value) => _owner.OnSelectionChanged();
@@ -116,6 +125,9 @@ public sealed partial class AccountItemViewModel : ObservableObject
 
     [RelayCommand(CanExecute = nameof(CanFocus))]
     private void Focus() => _owner.Focus(this);
+
+    [RelayCommand(CanExecute = nameof(IsRunning))]
+    private Task RetypeLoginAsync() => _owner.RetypeLoginAsync(this);
 
     [RelayCommand]
     private Task EditAsync() => _owner.EditAsync(this);

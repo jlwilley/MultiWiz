@@ -481,6 +481,22 @@ public sealed class JsonSettingsStoreTests : IDisposable
         Assert.NotNull(settings.PreferredInstallIds);
     }
 
+    [Theory]
+    [InlineData(4, 8)]
+    [InlineData(12, 12)]
+    public void Schema_1_settings_move_off_the_old_login_delay_default_but_keep_custom_values(int stored, int expected)
+    {
+        Directory.CreateDirectory(_paths.DataDirectory);
+        File.WriteAllText(_paths.SettingsFile, $$"""
+            { "schemaVersion": 1, "login": { "readyDelaySeconds": {{stored}} } }
+            """);
+
+        var settings = CreateStore().Current;
+
+        Assert.Equal(AppSettings.CurrentSchemaVersion, settings.SchemaVersion);
+        Assert.Equal(expected, settings.Login.ReadyDelaySeconds);
+    }
+
     [Fact]
     public void Properties_missing_from_the_file_keep_their_defaults()
     {
@@ -683,7 +699,7 @@ public sealed class AppSettingsJsonTests
 
         var json = JsonSerializer.Serialize(settings, CoreJsonContext.Default.AppSettings);
 
-        Assert.Contains("\"schemaVersion\": 1", json);
+        Assert.Contains($"\"schemaVersion\": {AppSettings.CurrentSchemaVersion}", json);
         Assert.Contains("\"theme\": \"Light\"", json);
         Assert.Contains("\"updateChannel\": \"Stable\"", json);
         Assert.Contains("\"preferredInstallIds\"", json);

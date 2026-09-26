@@ -73,6 +73,29 @@ internal sealed unsafe class WindowService : IWindowService
         return gameWindow != 0 ? gameWindow : largestWindow;
     }
 
+    public nint FindGameWindow(int processId)
+    {
+        if (processId <= 0)
+        {
+            return 0;
+        }
+
+        nint gameWindow = 0;
+        PInvoke.EnumWindows((hwnd, _) =>
+        {
+            PInvoke.GetWindowThreadProcessId(hwnd, out uint ownerProcessId);
+            if (ownerProcessId == (uint)processId && PInvoke.IsWindowVisible(hwnd) && IsGameClientWindow(hwnd))
+            {
+                gameWindow = hwnd;
+                return false;
+            }
+
+            return true;
+        }, default);
+
+        return gameWindow;
+    }
+
     public bool IsWindowAlive(nint hwnd) => NativeWindowHelpers.IsAlive(hwnd);
 
     public int GetProcessId(nint hwnd)

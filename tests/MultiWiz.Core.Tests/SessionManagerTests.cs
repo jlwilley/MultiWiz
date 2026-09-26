@@ -149,7 +149,7 @@ public sealed class SessionManagerTests
     }
 
     [Fact]
-    public async Task Launch_fails_and_closes_the_client_when_the_window_never_appears()
+    public async Task A_window_that_never_appears_skips_the_login_but_keeps_the_client_running()
     {
         using var h = new SessionHarness(SessionHarness.FastLogin(windowTimeoutSeconds: 3));
         h.Windows.WindowsNeverAppear = true;
@@ -158,12 +158,12 @@ public sealed class SessionManagerTests
 
         var session = await h.Time.RunUntilCompleteAsync(h.Manager.LaunchAsync(account.Id, Ct));
 
-        Assert.Equal(ClientSessionState.Failed, session.State);
-        Assert.Equal("The game window never appeared.", session.Error);
+        Assert.Equal(ClientSessionState.Running, session.State);
+        Assert.StartsWith("The game window took too long", session.Error);
         Assert.True(h.Time.GetUtcNow() - started >= TimeSpan.FromSeconds(3));
-        Assert.Equal(1, Assert.Single(h.Launcher.Launches).Process.KillCount);
+        Assert.Equal(0, Assert.Single(h.Launcher.Launches).Process.KillCount);
         Assert.Empty(h.Input.Log);
-        Assert.Empty(h.Manager.Sessions);
+        Assert.Single(h.Manager.Sessions);
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public sealed class SessionManagerTests
     }
 
     [Fact]
-    public async Task A_password_deleted_during_the_launch_fails_it_closes_the_client_and_releases_the_login_gate()
+    public async Task A_password_deleted_during_the_launch_skips_the_login_keeps_the_client_and_releases_the_login_gate()
     {
         using var h = new SessionHarness(SessionHarness.FastLogin());
         var forgetful = h.AddAccount("Forgetful");
@@ -195,12 +195,12 @@ public sealed class SessionManagerTests
             }
         };
 
-        var failed = await h.Time.RunUntilCompleteAsync(h.Manager.LaunchAsync(forgetful.Id, Ct));
+        var skipped = await h.Time.RunUntilCompleteAsync(h.Manager.LaunchAsync(forgetful.Id, Ct));
 
-        Assert.Equal(ClientSessionState.Failed, failed.State);
-        Assert.StartsWith("No saved password", failed.Error);
+        Assert.Equal(ClientSessionState.Running, skipped.State);
+        Assert.StartsWith("No saved password", skipped.Error);
         Assert.Empty(h.Input.Log);
-        Assert.Equal(1, Assert.Single(h.Launcher.Launches).Process.KillCount);
+        Assert.Equal(0, Assert.Single(h.Launcher.Launches).Process.KillCount);
 
         // The gate was released, so the next client can still log in.
         var next = await h.Time.RunUntilCompleteAsync(h.Manager.LaunchAsync(prepared.Id, Ct));
@@ -209,7 +209,7 @@ public sealed class SessionManagerTests
     }
 
     [Fact]
-    public async Task A_typing_failure_fails_the_launch_and_closes_the_client()
+    public async Task A_typing_failure_keeps_the_client_running_and_retype_login_recovers()
     {
         using var h = new SessionHarness(SessionHarness.FastLogin());
         var account = h.AddAccount("Unlucky");
@@ -217,10 +217,29 @@ public sealed class SessionManagerTests
 
         var session = await h.Time.RunUntilCompleteAsync(h.Manager.LaunchAsync(account.Id, Ct));
 
-        Assert.Equal(ClientSessionState.Failed, session.State);
+        Assert.Equal(ClientSessionState.Running, session.State);
         Assert.Contains("The window went away.", session.Error);
-        Assert.Equal(1, Assert.Single(h.Launcher.Launches).Process.KillCount);
-        Assert.Empty(h.Manager.Sessions);
+        Assert.Equal(0, Assert.Single(h.Launcher.Launches).Process.KillCount);
+        Assert.Single(h.Manager.Sessions);
+
+        h.Input.SendException = null;
+        var error = await h.Time.RunUntilCompleteAsync(h.Manager.RetypeLoginAsync(account.Id, Ct));
+
+        Assert.Null(error);
+        Assert.Equal(4, h.Input.Log.Count);
+        Assert.Null(h.Manager.Find(account.Id)?.Error);
+    }
+
+    [Fact]
+    public async Task Retype_login_reports_when_the_client_is_not_running()
+    {
+        using var h = new SessionHarness(SessionHarness.FastLogin());
+        var account = h.AddAccount("Idle");
+
+        var error = await h.Manager.RetypeLoginAsync(account.Id, Ct);
+
+        Assert.Equal("This client isn't running.", error);
+        Assert.Empty(h.Input.Log);
     }
 
     [Fact]
@@ -237,7 +256,7 @@ public sealed class SessionManagerTests
         var session = await h.Time.RunUntilCompleteAsync(launchTask);
 
         Assert.Equal(ClientSessionState.Failed, session.State);
-        Assert.Equal("The game closed before it finished starting.", session.Error);
+        Assert.StartsWith("The game closed right after starting", session.Error);
         Assert.True(h.Time.GetUtcNow() - started < TimeSpan.FromSeconds(60));
         Assert.Empty(h.Manager.Sessions);
         Assert.Contains(process.Id, h.Audio.Released);

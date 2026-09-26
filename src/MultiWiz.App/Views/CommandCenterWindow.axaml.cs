@@ -36,6 +36,8 @@ public partial class CommandCenterWindow : Window
         InitializeComponent();
         LayoutUpdated += (_, _) => SyncThumbnails();
         ScalingChanged += (_, _) => SyncThumbnails();
+        // The previews are separate native windows placed over the tiles, so they have to follow the window.
+        PositionChanged += (_, _) => SyncThumbnails();
         _sourceSizeCheck.Tick += (_, _) => SyncThumbnails();
     }
 
@@ -126,7 +128,10 @@ public partial class CommandCenterWindow : Window
 
             if (!_thumbnails.TryGetValue(tile.WindowHandle, out var entry))
             {
-                var thumbnail = _thumbnailService.Create(handle.Handle, tile.WindowHandle);
+                var thumbnail = _thumbnailService.Create(
+                    handle.Handle,
+                    tile.WindowHandle,
+                    () => Dispatcher.UIThread.Post(() => tile.FocusCommand.Execute(null)));
                 if (thumbnail is null)
                 {
                     if (_failedSources.Add(tile.WindowHandle))
@@ -143,11 +148,12 @@ public partial class CommandCenterWindow : Window
 
             // The letterbox inside the destination follows the game's current client size.
             var sourceSize = entry.Thumbnail.SourceSize;
-            if (entry.LastDestination != destination || entry.LastSourceSize != sourceSize)
+            if (entry.LastDestination != destination || entry.LastSourceSize != sourceSize || !Equals(entry.LastWindowPosition, Position))
             {
                 entry.Thumbnail.Update(destination, visible: !destination.IsEmpty);
                 entry.LastDestination = destination;
                 entry.LastSourceSize = sourceSize;
+                entry.LastWindowPosition = Position;
             }
 
             shown.Add(tile.WindowHandle);
@@ -186,5 +192,7 @@ public partial class CommandCenterWindow : Window
         public CorePixelRect? LastDestination { get; set; }
 
         public CorePixelSize LastSourceSize { get; set; }
+
+        public PixelPoint? LastWindowPosition { get; set; }
     }
 }

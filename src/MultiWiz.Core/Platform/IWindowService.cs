@@ -8,6 +8,12 @@ public interface IWindowService
     /// <summary>The main (visible, unowned, largest) top-level window of a process, or 0.</summary>
     nint FindMainWindow(int processId);
 
+    /// <summary>
+    /// The process's real game window (the Wizard101/Pirate101 client window class), or 0 if it has none yet. While a
+    /// client starts it can show other windows first; only this one takes the login input.
+    /// </summary>
+    nint FindGameWindow(int processId) => FindMainWindow(processId);
+
     bool IsWindowAlive(nint hwnd);
     int GetProcessId(nint hwnd);
     nint GetForegroundWindow();

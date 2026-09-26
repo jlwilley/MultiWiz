@@ -79,6 +79,7 @@
                           Classes.ok="{Binding IsRunning}"
                           Classes.busy="{Binding IsBusy}"
                           Classes.error="{Binding IsFailed}"
+                          Classes.warning="{Binding IsWarning}"
                           ToolTip.Tip="{Binding StatusToolTip}">
                     <TextBlock Text="{Binding StatusText}" />
                   </Border>
@@ -99,6 +100,11 @@
                         <PathIcon Data="{StaticResource IconStop}" Width="12" Height="12" />
                         <TextBlock Text="Stop" />
                       </StackPanel>
+                    </Button>
+                    <Button Classes="subtle icon" Command="{Binding RetypeLoginCommand}" IsVisible="{Binding IsRunning}"
+                            AutomationProperties.Name="Retype login"
+                            ToolTip.Tip="Type this account's login into its client again (if it was typed before the login screen was ready)">
+                      <PathIcon Data="{StaticResource IconRefresh}" />
                     </Button>
                     <Button Classes="subtle icon" Command="{Binding FocusCommand}"
                             AutomationProperties.Name="Focus game window" ToolTip.Tip="Bring this client to the front">

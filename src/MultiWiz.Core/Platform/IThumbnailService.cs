@@ -5,8 +5,11 @@ namespace MultiWiz.Core.Platform;
 /// <summary>Live window previews via DWM thumbnails (the same mechanism Alt-Tab uses; no screen capture).</summary>
 public interface IThumbnailService
 {
-    /// <summary>Creates a thumbnail of <paramref name="sourceWindow"/> drawn inside <paramref name="destinationWindow"/>, or null on failure.</summary>
-    IWindowThumbnail? Create(nint destinationWindow, nint sourceWindow);
+    /// <summary>
+    /// Creates a live preview of <paramref name="sourceWindow"/> shown over <paramref name="destinationWindow"/>, or null
+    /// on failure. <paramref name="onClick"/>, if given, runs when the preview is clicked (on a background thread).
+    /// </summary>
+    IWindowThumbnail? Create(nint destinationWindow, nint sourceWindow, Action? onClick = null);
 }
 
 public interface IWindowThumbnail : IDisposable
@@ -15,8 +18,8 @@ public interface IWindowThumbnail : IDisposable
     PixelSize SourceSize { get; }
 
     /// <summary>
-    /// Positions the thumbnail in the destination window's client area (physical pixels, relative to the
-    /// client area's top-left). Aspect ratio is preserved inside the rectangle.
+    /// Positions the preview over the destination window's client area (physical pixels, relative to the client
+    /// area's top-left). Aspect ratio is preserved inside the rectangle. Call again after the destination window moves.
     /// </summary>
     void Update(PixelRect destination, bool visible, byte opacity = 255);
 }

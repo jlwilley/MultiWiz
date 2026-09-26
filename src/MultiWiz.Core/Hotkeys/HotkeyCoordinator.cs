@@ -193,20 +193,27 @@ public sealed class HotkeyCoordinator : IHotkeyCoordinator
     {
         try
         {
-            switch (action)
+            bool? focused = action switch
             {
-                case >= HotkeyAction.FocusSlot1 and <= HotkeyAction.FocusSlot8:
-                    _switcher.FocusSlot(action - HotkeyAction.FocusSlot1);
-                    break;
-                case HotkeyAction.NextClient:
-                    _switcher.FocusNext();
-                    break;
-                case HotkeyAction.PreviousClient:
-                    _switcher.FocusPrevious();
-                    break;
-                default:
-                    UiActionRequested?.Invoke(this, action);
-                    break;
+                >= HotkeyAction.FocusSlot1 and <= HotkeyAction.FocusSlot8 => _switcher.FocusSlot(action - HotkeyAction.FocusSlot1),
+                HotkeyAction.NextClient => _switcher.FocusNext(),
+                HotkeyAction.PreviousClient => _switcher.FocusPrevious(),
+                _ => null,
+            };
+
+            if (focused is null)
+            {
+                _logger.LogInformation("Hotkey {Action} pressed", action);
+                UiActionRequested?.Invoke(this, action);
+            }
+            else
+            {
+                // Logged so "the hotkeys don't work" can be told apart from "there was no client to switch to".
+                _logger.LogInformation(
+                    "Hotkey {Action} pressed: {Result} ({Count} switchable clients)",
+                    action,
+                    focused.Value ? "switched" : "no client to switch to, or Windows refused the focus change",
+                    _switcher.OrderedSessions.Count);
             }
         }
         catch (Exception ex)

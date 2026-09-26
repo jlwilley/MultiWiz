@@ -106,6 +106,12 @@
   <Style Selector="Border.chip.error TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource CtpRedBrush}" />
   </Style>
+  <Style Selector="Border.chip.warning">
+    <Setter Property="Background" Value="{DynamicResource CtpYellowSoftBrush}" />
+  </Style>
+  <Style Selector="Border.chip.warning TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource CtpYellowBrush}" />
+  </Style>
   <Style Selector="Border.chip.info">
     <Setter Property="Background" Value="{DynamicResource CtpBlueSoftBrush}" />
   </Style>

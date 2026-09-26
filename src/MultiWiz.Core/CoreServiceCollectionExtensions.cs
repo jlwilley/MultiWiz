@@ -36,6 +36,7 @@ public static class CoreServiceCollectionExtensions
         services.AddSingletonWithInterface<ITeamLauncher, TeamLauncher>();
         services.AddSingletonWithInterface<ISessionManager, SessionManager>();
         services.AddSingleton<ISessionEvents>(static provider => provider.GetRequiredService<SessionManager>());
+        services.AddSingleton<ISessionLogin>(static provider => provider.GetRequiredService<SessionManager>());
         services.AddSingletonWithInterface<IClientSwitcher, ClientSwitcher>();
         services.AddSingletonWithInterface<IHotkeyCoordinator, HotkeyCoordinator>();
         services.AddSingletonWithInterface<ILegacyImporter, LegacyImporter>();

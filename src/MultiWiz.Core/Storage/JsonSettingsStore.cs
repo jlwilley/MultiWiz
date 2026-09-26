@@ -105,12 +105,31 @@ public sealed class JsonSettingsStore : ISettingsStore
                     new Realm { Id = string.Empty, Game = GameKind.Wizard101, DisplayName = string.Empty, LoginHost = string.Empty },
                     CoreJsonContext.Default.Realm));
 
+    /// <summary>Upgrades settings written by older builds.</summary>
+    private static AppSettings Migrate(AppSettings settings)
+    {
+        if (settings.SchemaVersion < 2)
+        {
+            // Schema 1 (the first v4 previews) typed the login 4 s after the window appeared, which is before the login
+            // screen is ready on most PCs. Move people still on that default to the new one; keep deliberate choices.
+            var login = settings.Login ?? new LoginSettings();
+            settings = settings with
+            {
+                SchemaVersion = 2,
+                Login = login.ReadyDelaySeconds == 4 ? login with { ReadyDelaySeconds = new LoginSettings().ReadyDelaySeconds } : login,
+            };
+        }
+
+        return settings;
+    }
+
     /// <summary>
     /// Replaces missing sections with defaults, drops unusable custom installs and realms, and clamps out-of-range
     /// values. Returns a value-equal copy when nothing needed fixing, so <c>==</c> still detects "no change".
     /// </summary>
     private static AppSettings Sanitize(AppSettings settings)
     {
+        settings = Migrate(settings);
         var general = settings.General ?? new GeneralSettings();
         var login = settings.Login ?? new LoginSettings();
         var audio = settings.Audio ?? new AudioSettings();

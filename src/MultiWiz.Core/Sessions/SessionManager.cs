@@ -20,10 +20,19 @@ namespace MultiWiz.Core.Sessions;
 /// (after MultiWiz quit, restarted for an update, or crashed) adopts the ones that are still running, so they keep
 /// being managed and launching the account again does not start a second client.
 /// </summary>
-public sealed class SessionManager : ISessionManager, ISessionEvents
+public sealed class SessionManager : ISessionManager, ISessionEvents, ISessionLogin
 {
     private static readonly TimeSpan WindowPollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan FieldDelay = TimeSpan.FromMilliseconds(100);
+
+    // While a client starts it can show other windows before its real game window; any window is accepted only after this.
+    private static readonly TimeSpan AnyWindowGrace = TimeSpan.FromSeconds(15);
+
+    // A client that exits this soon after starting was almost always refused by the login server (out of date).
+    private static readonly TimeSpan EarlyExitWindow = TimeSpan.FromSeconds(30);
+
+    // How long to keep looking for the window of a client that was slow to show one.
+    private static readonly TimeSpan LateWindowSearch = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan SteamReadyTimeout = TimeSpan.FromMinutes(3);
 
     // How far a process's start time may be from the recorded one and still count as the same process. The record is
@@ -296,10 +305,21 @@ public sealed class SessionManager : ISessionManager, ISessionEvents
         // 4. Wait for the main window. A process exit cancels the token, which ends the wait early.
         var timeout = TimeSpan.FromSeconds(Math.Max(1, login.WindowTimeoutSeconds));
         var window = await WaitForWindowAsync(processId, timeout, token).ConfigureAwait(false);
+        _logger.LogInformation(
+            "Account {AccountId}: process {ProcessId} window {Window} (game window: {IsGameWindow})",
+            account.Id, processId, window, window != 0 && window == _windows.FindGameWindow(processId));
         if (window == 0)
         {
-            Fail(entry, "The game window never appeared.");
-            KillProcess(entry);
+            // Never close the client: it may be patching or just slow. It stays switchable once its window shows up.
+            if (Transition(entry, static session => session with
+                {
+                    State = ClientSessionState.Running,
+                    Error = "The game window took too long to appear, so the login wasn't typed. Log in by hand, or use Retype login.",
+                }))
+            {
+                _ = KeepLookingForWindowAsync(entry, processId);
+            }
+
             return;
         }
 
@@ -326,12 +346,24 @@ public sealed class SessionManager : ISessionManager, ISessionEvents
                     return;
                 }
 
+                // The client can replace the window it first showed, so type into the one that exists now.
+                var current = ResolveWindow(processId, allowAnyWindow: true);
+                if (current != 0 && current != window)
+                {
+                    window = current;
+                    Transition(entry, session => session with { WindowHandle = current });
+                }
+
                 // Checked again: the password can be deleted while the client loads.
                 var password = _vault.GetPassword(account.Id);
                 if (string.IsNullOrEmpty(password))
                 {
-                    Fail(entry, "No saved password for this account. Edit the account to save it, or turn off auto-login.");
-                    KillProcess(entry);
+                    Transition(entry, session => session with
+                    {
+                        State = ClientSessionState.Running,
+                        WindowHandle = window,
+                        Error = "No saved password for this account, so the login wasn't typed. Log in by hand.",
+                    });
                     return;
                 }
 
@@ -341,13 +373,19 @@ public sealed class SessionManager : ISessionManager, ISessionEvents
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
+                    // Never close the client over this: logging in by hand (or Retype login) still works.
                     _logger.LogError(ex, "Typing the login details for account {AccountId} failed", account.Id);
-                    Fail(entry, $"Typing the login details failed: {ex.Message}");
-                    KillProcess(entry);
+                    Transition(entry, session => session with
+                    {
+                        State = ClientSessionState.Running,
+                        WindowHandle = window,
+                        Error = $"The login couldn't be typed ({ex.Message}). Log in by hand, or use Retype login.",
+                    });
                     return;
                 }
 
                 typedCredentials = true;
+                _logger.LogInformation("Account {AccountId}: typed the login into window {Window}", account.Id, window);
             }
             finally
             {
@@ -411,19 +449,111 @@ public sealed class SessionManager : ISessionManager, ISessionEvents
         var started = _time.GetTimestamp();
         while (true)
         {
-            var window = _windows.FindMainWindow(processId);
+            var elapsed = _time.GetElapsedTime(started);
+            var window = ResolveWindow(processId, allowAnyWindow: elapsed >= AnyWindowGrace);
             if (window != 0)
             {
                 return window;
             }
 
-            if (_time.GetElapsedTime(started) >= timeout)
+            if (elapsed >= timeout)
             {
                 return 0;
             }
 
             await Task.Delay(WindowPollInterval, _time, token).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>The client's game window, or (when allowed) its largest window if it has no game window yet.</summary>
+    private nint ResolveWindow(int processId, bool allowAnyWindow)
+    {
+        var window = _windows.FindGameWindow(processId);
+        return window != 0 || !allowAnyWindow ? window : _windows.FindMainWindow(processId);
+    }
+
+    // A client that was slow to show a window (patching, a slow disk) keeps running; attach its window once it appears.
+    private async Task KeepLookingForWindowAsync(SessionEntry entry, int processId)
+    {
+        try
+        {
+            var started = _time.GetTimestamp();
+            while (_time.GetElapsedTime(started) < LateWindowSearch)
+            {
+                lock (_lock)
+                {
+                    if (entry.ProcessExited || !entry.Snapshot.IsAlive)
+                    {
+                        return;
+                    }
+                }
+
+                var window = ResolveWindow(processId, allowAnyWindow: true);
+                if (window != 0)
+                {
+                    Transition(entry, session => session with { WindowHandle = window });
+                    return;
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(1), _time).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Looking for the window of process {ProcessId} failed", processId);
+        }
+    }
+
+    public async Task<string?> RetypeLoginAsync(Guid accountId, CancellationToken cancellationToken = default)
+    {
+        SessionEntry? entry;
+        int processId;
+        lock (_lock)
+        {
+            if (!_entries.TryGetValue(accountId, out entry) || entry.Snapshot.State != ClientSessionState.Running)
+            {
+                return "This client isn't running.";
+            }
+
+            processId = entry.Snapshot.ProcessId;
+        }
+
+        var account = _accounts.Find(accountId);
+        if (account is null)
+        {
+            return "This account no longer exists.";
+        }
+
+        var window = ResolveWindow(processId, allowAnyWindow: true);
+        if (window == 0)
+        {
+            return "The game window isn't open yet.";
+        }
+
+        var password = _vault.GetPassword(accountId);
+        if (string.IsNullOrEmpty(password))
+        {
+            return "No saved password for this account.";
+        }
+
+        await _loginGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await TypeCredentialsAsync(window, account.Username, password, _settings.Current.Login.KeystrokeDelayMs, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Retyping the login for account {AccountId} failed", accountId);
+            return $"The login couldn't be typed ({ex.Message}).";
+        }
+        finally
+        {
+            _loginGate.Release();
+        }
+
+        Transition(entry, session => session with { WindowHandle = window, Error = null });
+        return null;
     }
 
     private async Task TypeCredentialsAsync(nint window, string username, string password, int keystrokeDelayMs, CancellationToken token)
@@ -465,7 +595,7 @@ public sealed class SessionManager : ISessionManager, ISessionEvents
             {
                 updated = entry.StopRequested || entry.Snapshot.State == ClientSessionState.Running
                     ? entry.Snapshot with { State = ClientSessionState.Exited }
-                    : entry.Snapshot with { State = ClientSessionState.Failed, Error = "The game closed before it finished starting." };
+                    : entry.Snapshot with { State = ClientSessionState.Failed, Error = DescribeEarlyExit(entry.Snapshot) };
                 entry.Snapshot = updated;
                 RemoveLocked(entry);
             }
@@ -761,6 +891,12 @@ public sealed class SessionManager : ISessionManager, ISessionEvents
         PublishIfLatest(entry, updated);
         return true;
     }
+
+    private string DescribeEarlyExit(ClientSession session) =>
+        _time.GetUtcNow() - session.StartedAt <= EarlyExitWindow
+            ? "The game closed right after starting. This usually means it was updated: open the official launcher once so it " +
+              "can patch, then launch again."
+            : "The game closed before it finished starting.";
 
     private void Fail(SessionEntry entry, string error)
     {

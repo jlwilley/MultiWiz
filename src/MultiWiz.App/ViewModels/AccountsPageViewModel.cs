@@ -23,6 +23,7 @@ public sealed partial class AccountsPageViewModel : ObservableObject, IDisposabl
     private readonly ITeamStore _teams;
     private readonly ICredentialVault _vault;
     private readonly ISessionManager _sessions;
+    private readonly ISessionLogin _sessionLogin;
     private readonly IClientSwitcher _switcher;
     private readonly ISettingsStore _settings;
     private readonly ClientActions _actions;
@@ -39,6 +40,7 @@ public sealed partial class AccountsPageViewModel : ObservableObject, IDisposabl
         ITeamStore teams,
         ICredentialVault vault,
         ISessionManager sessions,
+        ISessionLogin sessionLogin,
         IClientSwitcher switcher,
         ISettingsStore settings,
         ClientActions actions,
@@ -53,6 +55,7 @@ public sealed partial class AccountsPageViewModel : ObservableObject, IDisposabl
         _teams = teams;
         _vault = vault;
         _sessions = sessions;
+        _sessionLogin = sessionLogin;
         _switcher = switcher;
         _settings = settings;
         _actions = actions;
@@ -114,6 +117,13 @@ public sealed partial class AccountsPageViewModel : ObservableObject, IDisposabl
         }
     }
 
+    internal async Task RetypeLoginAsync(AccountItemViewModel item)
+    {
+        _status.Show($"Typing the login for {item.DisplayName}…");
+        var error = await Task.Run(() => _sessionLogin.RetypeLoginAsync(item.Id));
+        _status.Show(error is null ? $"Typed the login for {item.DisplayName}." : $"{item.DisplayName}: {error}", isError: error is not null);
+    }
+
     internal async Task EditAsync(AccountItemViewModel item)
     {
         var current = _accounts.Find(item.Id) ?? item.Account;
@@ -140,7 +150,7 @@ public sealed partial class AccountsPageViewModel : ObservableObject, IDisposabl
         }
 
         // A client whose account is gone could no longer be stopped from this page, so close it with the account.
-        if (_actions.Stop(item.Id))
+        if (_actions.StopNow(item.Id))
         {
             _logger.LogInformation("Closed the running client of deleted account {AccountId}", item.Id);
         }

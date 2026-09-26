@@ -21,6 +21,7 @@ public sealed class ClientActions
     private readonly IDialogService _dialogs;
     private readonly StatusService _status;
     private readonly ILogger<ClientActions> _logger;
+    private static readonly TimeSpan DoubleClickGuard = TimeSpan.FromSeconds(2);
     private bool _confirmingExit;
 
     // The synchronous start of the latest LaunchMany call. Each call's start runs after the previous one, so clients
@@ -95,7 +96,24 @@ public sealed class ClientActions
         Observe(Task.Run(() => LaunchTeamCoreAsync(team)), "team launch");
     }
 
-    public bool Stop(Guid accountId) => _sessions.Stop(accountId);
+    /// <summary>
+    /// Stops the account's client. A Stop within the first couple of seconds of a launch is ignored: the Stop button
+    /// appears where Launch was, so a double-click on Launch would otherwise close the client it just started.
+    /// </summary>
+    public bool Stop(Guid accountId)
+    {
+        if (_sessions.Find(accountId) is { State: ClientSessionState.Launching or ClientSessionState.WaitingForWindow } session
+            && DateTimeOffset.UtcNow - session.StartedAt < DoubleClickGuard)
+        {
+            _status.Show($"{AccountName(accountId)} is still starting. Click Stop again in a moment to close it.");
+            return false;
+        }
+
+        return _sessions.Stop(accountId);
+    }
+
+    /// <summary>Stops the account's client right away (used when its account is deleted).</summary>
+    public bool StopNow(Guid accountId) => _sessions.Stop(accountId);
 
     /// <summary>
     /// Before MultiWiz quits or restarts: when game clients are running, asks whether to go ahead, saying what happens
