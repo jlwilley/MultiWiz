@@ -5,7 +5,7 @@
         x:Class="MultiWiz.App.Views.SwitcherWindow"
         x:DataType="vm:SwitcherViewModel"
         Title="MultiWiz"
-        Width="280"
+        Width="{Binding WindowWidth}"
         SizeToContent="Height"
         WindowDecorations="None"
         TransparencyLevelHint="Transparent"
@@ -73,15 +73,19 @@
             <Button Classes="entry" Classes.current="{Binding IsCurrent}"
                     Command="{Binding FocusCommand}"
                     AutomationProperties.Name="{Binding Name}">
-              <Grid ColumnDefinitions="Auto,Auto,*,Auto">
-                <Border Classes="slot">
+              <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+                <!-- The live preview is a native window placed over this placeholder by SwitcherWindow. -->
+                <Border Classes="thumb-host" Width="96" Height="54" CornerRadius="4" Margin="0,0,10,0"
+                        Background="{DynamicResource CtpMantleBrush}"
+                        IsVisible="{Binding ShowPreview}" />
+                <Border Grid.Column="1" Classes="slot">
                   <TextBlock Text="{Binding Slot}" />
                 </Border>
-                <Border Grid.Column="1" Classes="dot" Margin="10,0"
+                <Border Grid.Column="2" Classes="dot" Margin="10,0"
                         Background="{Binding AccentColor, Converter={x:Static conv:AppConverters.AccentBrush}}" />
-                <TextBlock Grid.Column="2" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                <TextBlock Grid.Column="3" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                            Text="{Binding Name}" />
-                <TextBlock Grid.Column="3" Classes="caption" Margin="8,0,0,0" VerticalAlignment="Center"
+                <TextBlock Grid.Column="4" Classes="caption" Margin="8,0,0,0" VerticalAlignment="Center"
                            TextWrapping="NoWrap"
                            IsVisible="{Binding HasHotkeyHint}"
                            Text="{Binding HotkeyHint}" />

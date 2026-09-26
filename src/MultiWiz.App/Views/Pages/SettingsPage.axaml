@@ -301,6 +301,15 @@
                   <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding DoNotStealFocus}"
                                 AutomationProperties.Name="Don't steal focus" />
                 </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Live previews" />
+                    <TextBlock Classes="caption" Text="Shows a small live picture of each client in the switcher." />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding ShowSwitcherPreviews}"
+                                AutomationProperties.Name="Show live previews in the switcher" />
+                </Grid>
               </StackPanel>
             </Border>
 

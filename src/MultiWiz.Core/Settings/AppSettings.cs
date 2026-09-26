@@ -124,6 +124,9 @@ public sealed record SwitcherSettings
     /// <summary>Clicking the switcher does not take focus away from the game.</summary>
     public bool DoNotStealFocus { get; init; } = true;
 
+    /// <summary>Show a small live preview of each client next to its name.</summary>
+    public bool ShowPreviews { get; init; } = true;
+
     /// <summary>Last position in physical pixels; null = default (right edge, one third down).</summary>
     public int? Left { get; init; }
     public int? Top { get; init; }

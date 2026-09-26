@@ -192,7 +192,7 @@ public sealed class WindowCoordinator
     private SwitcherWindow CreateSwitcherWindow()
     {
         var window = new SwitcherWindow { DataContext = _services.GetRequiredService<SwitcherViewModel>() };
-        window.Attach(_services.GetRequiredService<IOverlayWindowStyler>());
+        window.Attach(_services.GetRequiredService<IOverlayWindowStyler>(), _services.GetRequiredService<IThumbnailService>());
         return window;
     }
 

@@ -40,8 +40,9 @@ channel, the newest stable download is MultiWiz 3.x, and v4 builds appear as pre
 - **Teams and layouts:** group accounts into teams with a fixed slot order and launch a whole team with
   one click. Windows can be arranged side by side, in a 2×2 or 3×2 grid, as main + 3, or one per
   monitor, with multi-monitor and DPI awareness.
-- **Switcher:** a compact, always-on-top list of your running clients. Click one to focus it; the
-  switcher doesn't take focus away from the game.
+- **Switcher:** a compact, always-on-top list of your running clients with a small live preview of
+  each (turn previews off in Settings → Switcher). Click one to focus it; the switcher doesn't take
+  focus away from the game.
 - **Command Center:** a window of live thumbnails of every client. Click a tile to jump to that client.
 - **Games started outside MultiWiz:** clients you open with the official launcher (or that were
   already running) are picked up automatically and get switcher slots, hotkeys, Command Center tiles,

@@ -39,6 +39,13 @@ public sealed partial class SwitcherEntryViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsCurrent { get; set; }
 
+    /// <summary>The client's game window (0 while it has none); the switcher window draws its live preview.</summary>
+    [ObservableProperty]
+    public partial nint WindowHandle { get; set; }
+
+    [ObservableProperty]
+    public partial bool ShowPreview { get; set; }
+
     public bool HasHotkeyHint => !string.IsNullOrEmpty(HotkeyHint);
 
     [RelayCommand]
@@ -93,6 +100,13 @@ public sealed partial class SwitcherViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial bool DoNotStealFocus { get; private set; } = true;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WindowWidth))]
+    public partial bool ShowPreviews { get; private set; } = true;
+
+    /// <summary>Wider when previews are shown, so names still fit next to them.</summary>
+    public double WindowWidth => ShowPreviews ? 340 : 280;
+
     /// <summary>Where the user last left the switcher (physical pixels), or null for the default spot.</summary>
     public (int X, int Y)? SavedPosition =>
         _settings.Current.Switcher is { Left: { } left, Top: { } top } ? (left, top) : null;
@@ -127,6 +141,7 @@ public sealed partial class SwitcherViewModel : ObservableObject, IDisposable
         var settings = _settings.Current;
         Opacity = settings.Switcher.Opacity;
         DoNotStealFocus = settings.Switcher.DoNotStealFocus;
+        ShowPreviews = settings.Switcher.ShowPreviews;
         Title = _switcher.ActiveTeamId is { } teamId && _teams.Find(teamId) is { } team ? team.Name : "Switcher";
 
         var sessions = _switcher.OrderedSessions;
@@ -148,6 +163,8 @@ public sealed partial class SwitcherViewModel : ObservableObject, IDisposable
             entry.AccentColor = account?.AccentColor;
             entry.HotkeyHint = HotkeyHintFor(settings.Hotkeys, i, failedHotkeys);
             entry.IsCurrent = session.AccountId == currentId;
+            entry.WindowHandle = session.WindowHandle;
+            entry.ShowPreview = settings.Switcher.ShowPreviews;
             ordered.Add(entry);
         }
 

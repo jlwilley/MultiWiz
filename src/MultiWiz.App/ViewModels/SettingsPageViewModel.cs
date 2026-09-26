@@ -25,7 +25,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
         nameof(AutoLogin), nameof(ReadyDelaySeconds), nameof(WindowTimeoutSeconds), nameof(KeystrokeDelayMs),
         nameof(StaggerSeconds), nameof(RefocusAfterLogin),
         nameof(AudioEnabled), nameof(FocusedVolume), nameof(UnfocusedVolume),
-        nameof(SwitcherOpacity), nameof(ShowSwitcherOnTeamLaunch), nameof(DoNotStealFocus),
+        nameof(SwitcherOpacity), nameof(ShowSwitcherOnTeamLaunch), nameof(DoNotStealFocus), nameof(ShowSwitcherPreviews),
         nameof(ShowNameBadges),
         nameof(EfficiencyMode), nameof(LowerPriority),
         nameof(HotkeysEnabled),
@@ -165,6 +165,9 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
 
     [ObservableProperty]
     public partial bool DoNotStealFocus { get; set; }
+
+    [ObservableProperty]
+    public partial bool ShowSwitcherPreviews { get; set; }
 
     [ObservableProperty]
     public partial bool ShowNameBadges { get; set; }
@@ -583,6 +586,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
                 Opacity = Math.Round(SwitcherOpacity, 2),
                 ShowOnTeamLaunch = ShowSwitcherOnTeamLaunch,
                 DoNotStealFocus = DoNotStealFocus,
+                ShowPreviews = ShowSwitcherPreviews,
             },
             Overlays = settings.Overlays with { ShowNameBadges = ShowNameBadges },
             Performance = settings.Performance with
@@ -621,6 +625,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
             SwitcherOpacity = settings.Switcher.Opacity;
             ShowSwitcherOnTeamLaunch = settings.Switcher.ShowOnTeamLaunch;
             DoNotStealFocus = settings.Switcher.DoNotStealFocus;
+            ShowSwitcherPreviews = settings.Switcher.ShowPreviews;
             ShowNameBadges = settings.Overlays.ShowNameBadges;
 
             EfficiencyMode = settings.Performance.EfficiencyModeForBackground;
