@@ -96,6 +96,26 @@ internal sealed unsafe class WindowService : IWindowService
         return gameWindow;
     }
 
+    public IReadOnlyList<(nint Window, int ProcessId)> FindGameWindows()
+    {
+        var windows = new List<(nint Window, int ProcessId)>();
+        PInvoke.EnumWindows((hwnd, _) =>
+        {
+            if (PInvoke.IsWindowVisible(hwnd) && PInvoke.GetWindow(hwnd, GET_WINDOW_CMD.GW_OWNER).IsNull && IsGameClientWindow(hwnd))
+            {
+                PInvoke.GetWindowThreadProcessId(hwnd, out uint ownerProcessId);
+                if (ownerProcessId != 0)
+                {
+                    windows.Add((hwnd, (int)ownerProcessId));
+                }
+            }
+
+            return true;
+        }, default);
+
+        return windows;
+    }
+
     public bool IsWindowAlive(nint hwnd) => NativeWindowHelpers.IsAlive(hwnd);
 
     public int GetProcessId(nint hwnd)

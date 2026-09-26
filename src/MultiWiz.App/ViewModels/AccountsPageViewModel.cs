@@ -24,6 +24,7 @@ public sealed partial class AccountsPageViewModel : ObservableObject, IDisposabl
     private readonly ICredentialVault _vault;
     private readonly ISessionManager _sessions;
     private readonly ISessionLogin _sessionLogin;
+    private readonly ISessionLinking _sessionLinking;
     private readonly IClientSwitcher _switcher;
     private readonly ISettingsStore _settings;
     private readonly ClientActions _actions;
@@ -41,6 +42,7 @@ public sealed partial class AccountsPageViewModel : ObservableObject, IDisposabl
         ICredentialVault vault,
         ISessionManager sessions,
         ISessionLogin sessionLogin,
+        ISessionLinking sessionLinking,
         IClientSwitcher switcher,
         ISettingsStore settings,
         ClientActions actions,
@@ -56,6 +58,7 @@ public sealed partial class AccountsPageViewModel : ObservableObject, IDisposabl
         _vault = vault;
         _sessions = sessions;
         _sessionLogin = sessionLogin;
+        _sessionLinking = sessionLinking;
         _switcher = switcher;
         _settings = settings;
         _actions = actions;
@@ -73,6 +76,15 @@ public sealed partial class AccountsPageViewModel : ObservableObject, IDisposabl
     }
 
     public ObservableCollection<AccountItemViewModel> Accounts { get; } = [];
+
+    /// <summary>Game clients started outside MultiWiz (see <see cref="ClientSession.IsExternal"/>).</summary>
+    public ObservableCollection<ExternalClientItemViewModel> ExternalClients { get; } = [];
+
+    [ObservableProperty]
+    public partial bool HasExternalClients { get; private set; }
+
+    [ObservableProperty]
+    public partial string ExternalClientsText { get; private set; } = string.Empty;
 
     [ObservableProperty]
     public partial bool IsEmpty { get; private set; } = true;
@@ -122,6 +134,26 @@ public sealed partial class AccountsPageViewModel : ObservableObject, IDisposabl
         _status.Show($"Typing the login for {item.DisplayName}…");
         var error = await Task.Run(() => _sessionLogin.RetypeLoginAsync(item.Id));
         _status.Show(error is null ? $"Typed the login for {item.DisplayName}." : $"{item.DisplayName}: {error}", isError: error is not null);
+    }
+
+    internal void FocusExternal(ExternalClientItemViewModel item)
+    {
+        if (!_switcher.Focus(item.SessionId))
+        {
+            _status.Show($"{item.Label} has no game window to focus yet.");
+        }
+    }
+
+    internal void LinkExternal(ExternalClientItemViewModel item)
+    {
+        if (item.SelectedAccount is not { } option)
+        {
+            return;
+        }
+
+        var error = _sessionLinking.LinkExternal(item.SessionId, option.AccountId);
+        _status.Show(error is null ? $"Linked {item.Label} to {option.Label}." : $"{item.Label}: {error}", isError: error is not null);
+        RefreshExternalClients();
     }
 
     internal async Task EditAsync(AccountItemViewModel item)
@@ -236,6 +268,9 @@ public sealed partial class AccountsPageViewModel : ObservableObject, IDisposabl
 
     private void ApplySession(ClientSession session)
     {
+        // Any session change can start or end an external client, or make an account busy or idle for linking.
+        RefreshExternalClients();
+
         var item = Accounts.FirstOrDefault(account => account.Id == session.AccountId);
         if (item is null)
         {
@@ -244,6 +279,37 @@ public sealed partial class AccountsPageViewModel : ObservableObject, IDisposabl
 
         item.ApplySession(session);
         UpdateSummary();
+    }
+
+    private void RefreshExternalClients()
+    {
+        var sessions = _sessions.Sessions;
+        var external = sessions.Where(session => session.IsExternal && session.IsAlive).ToArray();
+        var existing = ExternalClients.ToDictionary(item => item.SessionId);
+        var ordered = new List<ExternalClientItemViewModel>(external.Length);
+        if (external.Length > 0)
+        {
+            var busy = sessions.Select(session => session.AccountId).ToHashSet();
+            var idle = _accounts.GetAll().Where(account => !busy.Contains(account.Id)).ToArray();
+            foreach (var session in external)
+            {
+                if (!existing.TryGetValue(session.AccountId, out var item))
+                {
+                    item = new ExternalClientItemViewModel(this, session.AccountId);
+                }
+
+                var options = idle
+                    .Where(account => session.Game is not { } game || account.Game == game)
+                    .Select(account => new AccountOption(account.Id, account.DisplayName))
+                    .ToArray();
+                item.Update(session, options);
+                ordered.Add(item);
+            }
+        }
+
+        CollectionSync.Apply(ExternalClients, ordered);
+        HasExternalClients = ExternalClients.Count > 0;
+        ExternalClientsText = $"Clients started outside MultiWiz: {ExternalClients.Count}";
     }
 
     private void Reload()
@@ -270,6 +336,7 @@ public sealed partial class AccountsPageViewModel : ObservableObject, IDisposabl
         CollectionSync.Apply(Accounts, ordered);
         IsEmpty = Accounts.Count == 0;
         HasLegacyData = _legacyImport.HasLegacyData;
+        RefreshExternalClients();
         UpdateMoveFlags();
         UpdateSummary();
         OnSelectionChanged();

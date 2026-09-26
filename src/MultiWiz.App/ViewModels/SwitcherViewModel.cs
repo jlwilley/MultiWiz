@@ -144,7 +144,7 @@ public sealed partial class SwitcherViewModel : ObservableObject, IDisposable
 
             var account = _accounts.Find(session.AccountId);
             entry.Slot = i + 1;
-            entry.Name = account?.DisplayName ?? "Unknown account";
+            entry.Name = account?.DisplayName ?? session.Label ?? "Unknown account";
             entry.AccentColor = account?.AccentColor;
             entry.HotkeyHint = HotkeyHintFor(settings.Hotkeys, i, failedHotkeys);
             entry.IsCurrent = session.AccountId == currentId;

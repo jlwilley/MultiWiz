@@ -130,6 +130,7 @@ internal sealed class SessionHarness : IDisposable
 
     public void Dispose()
     {
+        Manager.Dispose();
         _installCatalog.Dispose();
         Temp.Dispose();
     }

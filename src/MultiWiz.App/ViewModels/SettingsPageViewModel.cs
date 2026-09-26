@@ -20,6 +20,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
     private static readonly HashSet<string> DebouncedProperties =
     [
         nameof(SelectedTheme), nameof(MinimizeToTray), nameof(CloseToTray), nameof(CloseGamesOnExit),
+        nameof(DetectExternalClients),
         nameof(CheckForUpdates), nameof(SelectedChannel),
         nameof(AutoLogin), nameof(ReadyDelaySeconds), nameof(WindowTimeoutSeconds), nameof(KeystrokeDelayMs),
         nameof(StaggerSeconds), nameof(RefocusAfterLogin),
@@ -106,6 +107,9 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
 
     [ObservableProperty]
     public partial bool CloseGamesOnExit { get; set; }
+
+    [ObservableProperty]
+    public partial bool DetectExternalClients { get; set; }
 
     [ObservableProperty]
     public partial bool CheckForUpdates { get; set; }
@@ -549,6 +553,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
                 MinimizeToTray = MinimizeToTray,
                 CloseToTray = CloseToTray,
                 CloseGamesOnExit = CloseGamesOnExit,
+                DetectExternalClients = DetectExternalClients,
                 CheckForUpdates = CheckForUpdates,
                 UpdateChannel = SelectedChannel?.Value ?? settings.General.UpdateChannel,
             },
@@ -592,6 +597,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
             MinimizeToTray = settings.General.MinimizeToTray;
             CloseToTray = settings.General.CloseToTray;
             CloseGamesOnExit = settings.General.CloseGamesOnExit;
+            DetectExternalClients = settings.General.DetectExternalClients;
             CheckForUpdates = settings.General.CheckForUpdates;
             SelectedChannel = ChannelOption.All.FirstOrDefault(option => option.Value == settings.General.UpdateChannel) ?? ChannelOption.All[0];
 

@@ -97,7 +97,7 @@ public sealed partial class CommandCenterViewModel : ObservableObject, IDisposab
             var account = _accounts.Find(session.AccountId);
             tile.WindowHandle = session.WindowHandle;
             tile.Slot = i + 1;
-            tile.Name = account?.DisplayName ?? "Unknown account";
+            tile.Name = account?.DisplayName ?? session.Label ?? "Unknown account";
             tile.AccentColor = account?.AccentColor;
             tile.IsCurrent = session.AccountId == currentId;
             ordered.Add(tile);

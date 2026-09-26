@@ -8,7 +8,8 @@ using MultiWiz.Core.Teams;
 namespace MultiWiz.Core.Switching;
 
 /// <summary>
-/// Keeps the slot order of switchable clients (active team first, then other clients by account order), follows
+/// Keeps the slot order of switchable clients (active team first, then other clients by account order, then clients
+/// started outside MultiWiz by label), follows
 /// focus changes made anywhere (so <see cref="Current"/> stays right after alt-tab or a click), and applies the
 /// audio and performance policies through <see cref="FocusEffects"/>.
 /// </summary>
@@ -317,8 +318,11 @@ public sealed class ClientSwitcher : IClientSwitcher, IDisposable
                 rank.TryAdd(accounts[i].Id, i);
             }
 
+            // Clients started outside MultiWiz come last, by label ("Wizard101 client 2" before "... client 10").
             ordered.AddRange(available.Values
-                .OrderBy(session => rank.TryGetValue(session.AccountId, out var position) ? position : int.MaxValue)
+                .OrderBy(session => session.IsExternal ? 1 : 0)
+                .ThenBy(session => rank.TryGetValue(session.AccountId, out var position) ? position : int.MaxValue)
+                .ThenBy(session => session.Label, ExternalLabelComparer.Instance)
                 .ThenBy(session => session.StartedAt));
         }
 
@@ -380,5 +384,38 @@ public sealed class ClientSwitcher : IClientSwitcher, IDisposable
         }
 
         SetCurrent(session.AccountId);
+    }
+}
+
+/// <summary>Orders labels like "Wizard101 client 2" by their text, then by their trailing number as a number.</summary>
+internal sealed class ExternalLabelComparer : IComparer<string?>
+{
+    public static ExternalLabelComparer Instance { get; } = new();
+
+    public int Compare(string? x, string? y)
+    {
+        if (x is null || y is null)
+        {
+            return x is null ? (y is null ? 0 : 1) : -1;
+        }
+
+        var (xText, xNumber) = Split(x);
+        var (yText, yNumber) = Split(y);
+        var byText = string.Compare(xText, yText, StringComparison.OrdinalIgnoreCase);
+        return byText != 0 ? byText : xNumber.CompareTo(yNumber);
+    }
+
+    private static (string Text, long Number) Split(string label)
+    {
+        var end = label.Length;
+        var start = end;
+        while (start > 0 && char.IsAsciiDigit(label[start - 1]))
+        {
+            start--;
+        }
+
+        return start < end && end - start <= 18 && long.TryParse(label.AsSpan(start), out var number)
+            ? (label[..start], number)
+            : (label, -1);
     }
 }

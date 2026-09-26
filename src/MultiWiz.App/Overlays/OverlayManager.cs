@@ -205,7 +205,7 @@ public sealed class OverlayManager : IDisposable
 
             var account = _accounts.Find(session.AccountId);
             badge.ViewModel.Slot = i + 1;
-            badge.ViewModel.Name = account?.DisplayName ?? "Unknown account";
+            badge.ViewModel.Name = account?.DisplayName ?? session.Label ?? "Unknown account";
             badge.ViewModel.AccentColor = account?.AccentColor;
         }
 

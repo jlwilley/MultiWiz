@@ -358,6 +358,37 @@ public sealed class ClientSwitcherTests : IDisposable
         Assert.Equal(_bravo.Id, switcher.OrderedSessions[0].AccountId);
     }
 
+    [Fact]
+    public void Clients_started_outside_MultiWiz_come_after_account_clients_ordered_by_label()
+    {
+        var team = _teams.Add("Duo", [_bravo.Id]);
+        _switcher.SetActiveTeam(team.Id);
+        var tenth = External("Wizard101 client 10", 910);
+        var second = External("Wizard101 client 2", 920);
+        var pirate = External("Pirate101 client 1", 930);
+        _sessions.Start(_charlie.Id);
+        _sessions.Start(_bravo.Id);
+        _sessions.Start(_alpha.Id);
+
+        Assert.Equal(
+            new[] { _bravo.Id, _alpha.Id, _charlie.Id, pirate.AccountId, second.AccountId, tenth.AccountId },
+            OrderedAccountIds());
+
+        // They are switchable like any other client.
+        Assert.True(_switcher.FocusSlot(4));
+        Assert.Equal(second.AccountId, _switcher.Current?.AccountId);
+        Assert.Contains(WindowFor(920), _windows.FocusCalls);
+    }
+
+    private ClientSession External(string label, int processId)
+    {
+        var session = FakeSessionManager.Running(Guid.NewGuid(), processId) with { IsExternal = true, Label = label };
+        _sessions.Set(session);
+        return session;
+    }
+
+    private static nint WindowFor(int processId) => FakeWindowService.WindowFor(processId);
+
     private void StartAll()
     {
         _sessions.Start(_alpha.Id);

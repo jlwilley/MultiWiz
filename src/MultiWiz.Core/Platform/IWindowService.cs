@@ -14,6 +14,12 @@ public interface IWindowService
     /// </summary>
     nint FindGameWindow(int processId) => FindMainWindow(processId);
 
+    /// <summary>
+    /// Every visible top-level Wizard101/Pirate101 client window (the game window classes) and the process that owns
+    /// it, whoever started the process. Used to pick up clients started outside MultiWiz. The default finds none.
+    /// </summary>
+    IReadOnlyList<(nint Window, int ProcessId)> FindGameWindows() => [];
+
     bool IsWindowAlive(nint hwnd);
     int GetProcessId(nint hwnd);
     nint GetForegroundWindow();

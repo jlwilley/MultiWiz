@@ -88,6 +88,16 @@
                   <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding CloseGamesOnExit}"
                                 AutomationProperties.Name="Close game clients when MultiWiz exits" />
                 </Grid>
+                <Border Classes="divider" />
+                <Grid Classes="setting" ColumnDefinitions="*,Auto">
+                  <StackPanel>
+                    <TextBlock Classes="setting-title" Text="Detect games started outside MultiWiz" />
+                    <TextBlock Classes="caption"
+                               Text="Clients opened from the official launcher get switcher slots, hotkeys, audio switching and name badges too." />
+                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding DetectExternalClients}"
+                                AutomationProperties.Name="Detect games started outside MultiWiz" />
+                </Grid>
               </StackPanel>
             </Border>
 

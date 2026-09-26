@@ -48,6 +48,7 @@ public sealed class CoreServiceCollectionExtensionsTests : IDisposable
         AssertShared<ISessionManager, SessionManager>(provider);
         AssertShared<ISessionEvents, SessionManager>(provider);
         AssertShared<ISessionLogin, SessionManager>(provider);
+        AssertShared<ISessionLinking, SessionManager>(provider);
         AssertShared<IClientSwitcher, ClientSwitcher>(provider);
         AssertShared<IHotkeyCoordinator, HotkeyCoordinator>(provider);
         AssertShared<ILegacyImporter, LegacyImporter>(provider);

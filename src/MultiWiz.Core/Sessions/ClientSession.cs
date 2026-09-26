@@ -1,3 +1,5 @@
+using MultiWiz.Core.Games;
+
 namespace MultiWiz.Core.Sessions;
 
 public enum ClientSessionState
@@ -29,6 +31,19 @@ public sealed record ClientSession
 
     /// <summary>Human-readable reason when <see cref="State"/> is <see cref="ClientSessionState.Failed"/>.</summary>
     public string? Error { get; init; }
+
+    /// <summary>
+    /// True for a client that was started outside MultiWiz (the official launcher, or before MultiWiz ran) and picked
+    /// up automatically. Its <see cref="AccountId"/> is a synthetic id that belongs to no saved account until the user
+    /// links it to one (see <see cref="ISessionLinking"/>).
+    /// </summary>
+    public bool IsExternal { get; init; }
+
+    /// <summary>What to call a client that has no account, such as "Wizard101 client 1"; null for account clients.</summary>
+    public string? Label { get; init; }
+
+    /// <summary>The client's game when no account tells it (set for clients started outside MultiWiz), otherwise null.</summary>
+    public GameKind? Game { get; init; }
 
     public bool IsAlive => State is ClientSessionState.Launching or ClientSessionState.WaitingForWindow
         or ClientSessionState.WaitingForReady or ClientSessionState.LoggingIn or ClientSessionState.Running;

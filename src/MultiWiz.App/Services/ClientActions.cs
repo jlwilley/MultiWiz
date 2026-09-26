@@ -192,7 +192,9 @@ public sealed class ClientActions
         }
     }
 
-    private string AccountName(Guid accountId) => _accounts.Find(accountId)?.DisplayName ?? "An account";
+    // A client started outside MultiWiz has no account, only a label such as "Wizard101 client 1".
+    private string AccountName(Guid accountId) =>
+        _accounts.Find(accountId)?.DisplayName ?? _sessions.Find(accountId)?.Label ?? "An account";
 
     private void Observe(Task task, string operation) =>
         task.ContinueWith(

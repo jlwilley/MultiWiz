@@ -58,6 +58,12 @@ public sealed record GeneralSettings
     public UpdateChannel UpdateChannel { get; init; } = UpdateChannel.Stable;
 
     /// <summary>
+    /// Pick up Wizard101/Pirate101 clients started outside MultiWiz (the official launcher, or before MultiWiz ran), so
+    /// they get slots, audio switching and name badges too.
+    /// </summary>
+    public bool DetectExternalClients { get; init; } = true;
+
+    /// <summary>
     /// Properties this build does not know (written by a newer one), kept so a save does not drop them. Only the
     /// serializer sets this (extension data cannot be init-only with source-generated metadata).
     /// </summary>

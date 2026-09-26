@@ -4,7 +4,8 @@ namespace MultiWiz.Core.Switching;
 
 /// <summary>
 /// Keeps the ordered list of switchable clients and moves focus between them.
-/// Order: the active team's slot order first, then any other running clients by account order.
+/// Order: the active team's slot order first, then any other running clients by account order, then clients started
+/// outside MultiWiz (see <see cref="ClientSession.IsExternal"/>) by label.
 /// Tracks focus changes made outside MultiWiz (alt-tab, clicking) so <see cref="Current"/> stays accurate,
 /// and applies audio/performance policies to the focused and background clients.
 /// </summary>

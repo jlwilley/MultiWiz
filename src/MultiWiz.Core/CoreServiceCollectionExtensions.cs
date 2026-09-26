@@ -1,9 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using MultiWiz.Core.Accounts;
 using MultiWiz.Core.Games;
 using MultiWiz.Core.Hotkeys;
 using MultiWiz.Core.Legacy;
+using MultiWiz.Core.Patching;
 using MultiWiz.Core.Sessions;
 using MultiWiz.Core.Settings;
 using MultiWiz.Core.Storage;
@@ -37,9 +39,21 @@ public static class CoreServiceCollectionExtensions
         services.AddSingletonWithInterface<ISessionManager, SessionManager>();
         services.AddSingleton<ISessionEvents>(static provider => provider.GetRequiredService<SessionManager>());
         services.AddSingleton<ISessionLogin>(static provider => provider.GetRequiredService<SessionManager>());
+        services.AddSingleton<ISessionLinking>(static provider => provider.GetRequiredService<SessionManager>());
         services.AddSingletonWithInterface<IClientSwitcher, ClientSwitcher>();
         services.AddSingletonWithInterface<IHotkeyCoordinator, HotkeyCoordinator>();
         services.AddSingletonWithInterface<ILegacyImporter, LegacyImporter>();
+
+        // Game file downloads: one shared HttpClient for the patch CDN (tests construct GameDownloader directly).
+        services.TryAddSingleton<IPatchConnectionFactory, TcpPatchConnectionFactory>();
+        services.AddSingletonWithInterface<IPatchServerClient, PatchServerClient>();
+        services.AddSingleton(static provider => new GameDownloader(
+            provider.GetRequiredService<AppPaths>(),
+            provider.GetRequiredService<IPatchServerClient>(),
+            GameDownloader.CreateDefaultHttpClient(),
+            provider.GetRequiredService<TimeProvider>(),
+            provider.GetRequiredService<ILogger<GameDownloader>>()));
+        services.AddSingleton<IGameDownloader>(static provider => provider.GetRequiredService<GameDownloader>());
 
         return services;
     }

@@ -19,8 +19,12 @@ namespace MultiWiz.Core.Sessions;
 /// Started clients are recorded in <see cref="AppPaths.RunningClientsFile"/> until they exit, and a new manager
 /// (after MultiWiz quit, restarted for an update, or crashed) adopts the ones that are still running, so they keep
 /// being managed and launching the account again does not start a second client.
+/// Clients started outside MultiWiz (the official launcher, or before MultiWiz ran and not in that record) are picked
+/// up every few seconds while <see cref="GeneralSettings.DetectExternalClients"/> is on, as external sessions keyed by
+/// a synthetic id (see <see cref="ClientSession.IsExternal"/>), and can be linked to a saved account
+/// (<see cref="ISessionLinking"/>).
 /// </summary>
-public sealed class SessionManager : ISessionManager, ISessionEvents, ISessionLogin
+public sealed class SessionManager : ISessionManager, ISessionEvents, ISessionLogin, ISessionLinking, IDisposable
 {
     private static readonly TimeSpan WindowPollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan FieldDelay = TimeSpan.FromMilliseconds(100);
@@ -39,6 +43,14 @@ public sealed class SessionManager : ISessionManager, ISessionEvents, ISessionLo
     // written right after the start (with MultiWiz's clock when the platform does not report the start time), while a
     // reused process id belongs to a process started after the recorded one exited.
     private static readonly TimeSpan ProcessIdentityTolerance = TimeSpan.FromSeconds(30);
+
+    // How often to look for clients started outside MultiWiz, and how soon after MultiWiz starts.
+    private static readonly TimeSpan ExternalScanInterval = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan FirstExternalScan = TimeSpan.FromSeconds(1);
+
+    // A client younger than this is left alone for now: it may be one MultiWiz itself is starting, whose process is
+    // attached to its session right after Process.Start.
+    private static readonly TimeSpan ExternalMinimumAge = TimeSpan.FromSeconds(10);
 
     private readonly IAccountStore _accounts;
     private readonly IRealmCatalog _realms;
@@ -80,6 +92,14 @@ public sealed class SessionManager : ISessionManager, ISessionEvents, ISessionLo
     private readonly Lock _runningClientsLock = new();
     private readonly Dictionary<Guid, RunningClient> _runningClients = new();
 
+    private readonly ITimer _externalScanTimer;
+
+    // 1 while a scan for external clients runs, so a slow scan is never overlapped by the next tick.
+    private int _scanning;
+
+    // Guarded by _lock.
+    private bool _disposed;
+
     public SessionManager(
         IAccountStore accounts,
         IRealmCatalog realms,
@@ -112,6 +132,8 @@ public sealed class SessionManager : ISessionManager, ISessionEvents, ISessionLo
         _runningClientsFile = paths.RunningClientsFile;
 
         AdoptRunningClients();
+        _externalScanTimer = _time.CreateTimer(
+            static state => ((SessionManager)state!).OnExternalScanTimer(), this, FirstExternalScan, ExternalScanInterval);
     }
 
     public event EventHandler<ClientSession>? SessionChanged;
@@ -515,6 +537,11 @@ public sealed class SessionManager : ISessionManager, ISessionEvents, ISessionLo
                 return "This client isn't running.";
             }
 
+            if (entry.Snapshot.IsExternal)
+            {
+                return "This client was started outside MultiWiz. Link it to an account first.";
+            }
+
             processId = entry.Snapshot.ProcessId;
         }
 
@@ -587,10 +614,12 @@ public sealed class SessionManager : ISessionManager, ISessionEvents, ISessionLo
     {
         ClientSession? updated = null;
         CancellationTokenSource? flow;
+        Guid accountId;
         lock (_lock)
         {
             entry.ProcessExited = true;
             flow = entry.Flow;
+            accountId = entry.AccountId;
             if (entry.Snapshot.IsAlive)
             {
                 updated = entry.StopRequested || entry.Snapshot.State == ClientSessionState.Running
@@ -601,8 +630,8 @@ public sealed class SessionManager : ISessionManager, ISessionEvents, ISessionLo
             }
         }
 
-        _logger.LogInformation("Process {ProcessId} of account {AccountId} exited", processId, entry.AccountId);
-        ForgetRunningClient(entry.AccountId, processId);
+        _logger.LogInformation("Process {ProcessId} of account {AccountId} exited", processId, accountId);
+        ForgetRunningClient(accountId, processId);
         ReleaseProcessResources(processId);
         if (updated is not null)
         {
@@ -819,6 +848,313 @@ public sealed class SessionManager : ISessionManager, ISessionEvents, ISessionLo
             // Only costs picking the clients up again after a restart.
             _logger.LogWarning(ex, "Saving the list of running clients failed");
         }
+    }
+
+    public string? LinkExternal(Guid externalId, Guid accountId)
+    {
+        var account = _accounts.Find(accountId);
+        if (account is null)
+        {
+            return "This account no longer exists.";
+        }
+
+        ILaunchedProcess? process;
+        int processId;
+        lock (_publishLock)
+        {
+            ClientSession removed;
+            ClientSession linked;
+            SessionEntry? entry;
+            lock (_lock)
+            {
+                if (!_entries.TryGetValue(externalId, out entry) || !entry.Snapshot.IsExternal || !entry.Snapshot.IsAlive)
+                {
+                    return "This client isn't running any more.";
+                }
+
+                if (entry.ExternalGame is { } game && game != account.Game)
+                {
+                    return $"This is a {game} client, but {account.DisplayName} is a {account.Game} account.";
+                }
+
+                if (_entries.ContainsKey(accountId))
+                {
+                    return $"{account.DisplayName} already has a client running.";
+                }
+
+                removed = entry.Snapshot with { State = ClientSessionState.Exited };
+                linked = entry.Snapshot with { AccountId = accountId, IsExternal = false, Label = null, Error = null };
+                _entries.Remove(externalId);
+                entry.AccountId = accountId;
+                entry.ExternalGame = null;
+                entry.ExternalNumber = 0;
+                entry.Snapshot = linked;
+                _entries.Add(accountId, entry);
+                process = entry.ProcessExited ? null : entry.Process;
+                processId = linked.ProcessId;
+            }
+
+            // Subscribers keyed by account id drop the external client, then see the account's client. Raised under
+            // _publishLock like PublishIfLatest, so no snapshot of the old id can follow the removal.
+            Publish(removed);
+            bool latest;
+            lock (_lock)
+            {
+                latest = ReferenceEquals(entry.Snapshot, linked);
+            }
+
+            if (latest)
+            {
+                Publish(linked);
+            }
+        }
+
+        _logger.LogInformation(
+            "Linked the client started outside MultiWiz (process {ProcessId}) to account {AccountId}", processId, accountId);
+
+        // From now on it is the account's client, so it is picked up again as that account after a restart.
+        if (process is not null)
+        {
+            RememberRunningClient(accountId, process, processId);
+        }
+
+        return null;
+    }
+
+    public void Dispose()
+    {
+        lock (_lock)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+        }
+
+        _externalScanTimer.Dispose();
+    }
+
+    private void OnExternalScanTimer()
+    {
+        if (Interlocked.Exchange(ref _scanning, 1) == 1)
+        {
+            return;
+        }
+
+        try
+        {
+            ScanForExternalClients();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Looking for game clients started outside MultiWiz failed");
+        }
+        finally
+        {
+            Volatile.Write(ref _scanning, 0);
+        }
+    }
+
+    /// <summary>
+    /// One pass of external client detection: adopts game windows whose process no session tracks, and keeps the
+    /// window of adopted clients current. With detection turned off, lets go of the external clients instead.
+    /// </summary>
+    internal void ScanForExternalClients()
+    {
+        lock (_lock)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+        }
+
+        if (!_settings.Current.General.DetectExternalClients)
+        {
+            ReleaseExternalSessions();
+            return;
+        }
+
+        var seen = new HashSet<int>();
+        foreach (var (window, processId) in _windows.FindGameWindows())
+        {
+            if (processId <= 0 || window == 0 || processId == Environment.ProcessId || !seen.Add(processId))
+            {
+                continue;
+            }
+
+            if (FindByProcessId(processId) is { } tracked)
+            {
+                // The client can replace its window; an adopted one has no launch flow that would notice.
+                if (tracked.IsExternal && tracked.WindowHandle != window && !_windows.IsWindowAlive(tracked.WindowHandle))
+                {
+                    UpdateExternalWindow(tracked.AccountId, processId, window);
+                }
+
+                continue;
+            }
+
+            TryAdoptExternal(processId, window);
+        }
+    }
+
+    private void UpdateExternalWindow(Guid sessionId, int processId, nint window)
+    {
+        SessionEntry? entry;
+        lock (_lock)
+        {
+            if (!_entries.TryGetValue(sessionId, out entry) || entry.Snapshot.ProcessId != processId)
+            {
+                return;
+            }
+        }
+
+        Transition(entry, session => session with { WindowHandle = window });
+    }
+
+    private void TryAdoptExternal(int processId, nint window)
+    {
+        var process = _launcher.TryAttach(processId);
+        if (process is null)
+        {
+            return;
+        }
+
+        SessionEntry? entry = null;
+        ClientSession? snapshot = null;
+        try
+        {
+            DateTimeOffset startTime;
+            GameKind game;
+            try
+            {
+                if (process.HasExited || process.StartTime is not { } reportedStart || !TryGetClientGame(process.ProcessName, out game))
+                {
+                    return;
+                }
+
+                startTime = reportedStart;
+            }
+            catch (Exception)
+            {
+                // The process exited or cannot be inspected.
+                return;
+            }
+
+            if (_time.GetUtcNow() - startTime < ExternalMinimumAge)
+            {
+                return;
+            }
+
+            var sessionId = ExternalSessionId(processId, startTime);
+            lock (_lock)
+            {
+                if (_disposed || _entries.ContainsKey(sessionId) || _entries.Values.Any(existing => existing.Snapshot.ProcessId == processId))
+                {
+                    return;
+                }
+
+                var number = NextExternalNumberLocked(game);
+                snapshot = new ClientSession
+                {
+                    AccountId = sessionId,
+                    State = ClientSessionState.Running,
+                    StartedAt = startTime,
+                    ProcessId = processId,
+                    WindowHandle = window,
+                    IsExternal = true,
+                    Label = $"{game} client {number}",
+                    Game = game,
+                };
+                entry = new SessionEntry(sessionId, ++_sequence, snapshot)
+                {
+                    Process = process,
+                    ExternalGame = game,
+                    ExternalNumber = number,
+                };
+                _entries.Add(sessionId, entry);
+            }
+        }
+        finally
+        {
+            if (entry is null)
+            {
+                process.Dispose();
+            }
+        }
+
+        _logger.LogInformation("Picked up {Label} (process {ProcessId}), which was started outside MultiWiz", snapshot!.Label, processId);
+        PublishIfLatest(entry, snapshot);
+        _ = WatchForExitAsync(entry, process, processId);
+    }
+
+    /// <summary>Stops tracking external clients (detection was turned off). Their processes keep running.</summary>
+    private void ReleaseExternalSessions()
+    {
+        List<(SessionEntry Entry, ClientSession Snapshot)> released = [];
+        lock (_lock)
+        {
+            foreach (var entry in _entries.Values.Where(entry => entry.Snapshot.IsExternal).ToArray())
+            {
+                var updated = entry.Snapshot with { State = ClientSessionState.Exited };
+                entry.Snapshot = updated;
+                RemoveLocked(entry);
+                released.Add((entry, updated));
+            }
+        }
+
+        foreach (var (entry, snapshot) in released)
+        {
+            _logger.LogInformation("No longer managing {Label} (process {ProcessId})", snapshot.Label, snapshot.ProcessId);
+            ReleaseProcessResources(snapshot.ProcessId);
+            PublishIfLatest(entry, snapshot);
+        }
+    }
+
+    // The smallest number no current external client of the game uses, so labels stay short and stable.
+    private int NextExternalNumberLocked(GameKind game)
+    {
+        var used = _entries.Values
+            .Where(entry => entry.ExternalGame == game && entry.Snapshot.IsExternal)
+            .Select(entry => entry.ExternalNumber)
+            .ToHashSet();
+        var number = 1;
+        while (used.Contains(number))
+        {
+            number++;
+        }
+
+        return number;
+    }
+
+    private static bool TryGetClientGame(string? processName, out GameKind game)
+    {
+        foreach (var candidate in Enum.GetValues<GameKind>())
+        {
+            if (string.Equals(processName, GameExecutables.ClientProcessName(candidate), StringComparison.OrdinalIgnoreCase))
+            {
+                game = candidate;
+                return true;
+            }
+        }
+
+        game = default;
+        return false;
+    }
+
+    /// <summary>
+    /// A synthetic session id for an external client: the same for the same process (id + start time) on every scan,
+    /// and marked so it cannot be mistaken for a random account id.
+    /// </summary>
+    internal static Guid ExternalSessionId(int processId, DateTimeOffset startTime)
+    {
+        Span<byte> bytes = stackalloc byte[16];
+        BitConverter.TryWriteBytes(bytes[..4], processId);
+        BitConverter.TryWriteBytes(bytes[4..12], startTime.UtcTicks);
+        "MWEX"u8.CopyTo(bytes[12..]);
+        return new Guid(bytes);
     }
 
     private bool TryBeginLaunch(Guid accountId, [NotNullWhen(true)] out SessionEntry? entry, out ClientSession snapshot)
@@ -1091,12 +1427,20 @@ public sealed class SessionManager : ISessionManager, ISessionEvents, ISessionLo
 
     private sealed class SessionEntry(Guid accountId, long sequence, ClientSession snapshot)
     {
-        public Guid AccountId { get; } = accountId;
-
         public long Sequence { get; } = sequence;
 
         // Everything below is guarded by SessionManager._lock.
+
+        /// <summary>The key in _entries; changes only when an external session is linked to an account.</summary>
+        public Guid AccountId { get; set; } = accountId;
+
         public ClientSession Snapshot { get; set; } = snapshot;
+
+        /// <summary>The game of an external session (null for account sessions).</summary>
+        public GameKind? ExternalGame { get; set; }
+
+        /// <summary>The number in an external session's label ("Wizard101 client 2").</summary>
+        public int ExternalNumber { get; set; }
 
         public ILaunchedProcess? Process { get; set; }
 

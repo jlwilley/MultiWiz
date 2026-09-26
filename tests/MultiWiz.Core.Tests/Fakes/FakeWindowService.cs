@@ -9,6 +9,7 @@ internal sealed class FakeWindowService : IWindowService
     private readonly Lock _lock = new();
     private readonly Dictionary<int, int> _pollsByProcess = new();
     private readonly List<nint> _focusCalls = [];
+    private readonly List<(nint Window, int ProcessId)> _gameWindows = [];
     private readonly List<(nint Window, PixelRect Bounds, bool Resize)> _setBoundsCalls = [];
     private nint _foreground;
 
@@ -54,6 +55,25 @@ internal sealed class FakeWindowService : IWindowService
             var polls = _pollsByProcess.GetValueOrDefault(processId);
             _pollsByProcess[processId] = polls + 1;
             return polls >= PollsBeforeWindow ? WindowFor(processId) : 0;
+        }
+    }
+
+    /// <summary>Makes <see cref="FindGameWindows"/> report the process's game window (<see cref="WindowFor"/>), whoever started it.</summary>
+    public nint AddGameWindow(int processId)
+    {
+        lock (_lock)
+        {
+            _gameWindows.Add((WindowFor(processId), processId));
+            return WindowFor(processId);
+        }
+    }
+
+    /// <summary>The game windows added with <see cref="AddGameWindow"/>; none by default.</summary>
+    public IReadOnlyList<(nint Window, int ProcessId)> FindGameWindows()
+    {
+        lock (_lock)
+        {
+            return _gameWindows.ToArray();
         }
     }
 
