@@ -4,3 +4,6 @@
 // A second launch lets the running instance bring its window to the front.
 AllowSetForegroundWindow
 ASFW_ANY
+
+// Startup failures and the elevated-instance notice, shown before (or without) any Avalonia window.
+MessageBox

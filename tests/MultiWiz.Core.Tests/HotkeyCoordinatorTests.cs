@@ -83,10 +83,10 @@ public sealed class HotkeyCoordinatorTests : IDisposable
         _coordinator.UiActionRequested += (_, action) => requested.Add(action);
         _coordinator.Start();
 
-        _hotkeys.Press("Ctrl+Alt+S");
-        _hotkeys.Press("Ctrl+Alt+C");
-        _hotkeys.Press("Ctrl+Alt+M");
-        _hotkeys.Press("Ctrl+Alt+B");
+        Assert.True(_hotkeys.Press("Ctrl+Alt+F9"));
+        Assert.True(_hotkeys.Press("Ctrl+Alt+F10"));
+        Assert.True(_hotkeys.Press("Ctrl+Alt+F11"));
+        Assert.True(_hotkeys.Press("Ctrl+Alt+F12"));
 
         Assert.Equal(
             new[] { HotkeyAction.ToggleSwitcher, HotkeyAction.ToggleCommandCenter, HotkeyAction.ShowMainWindow, HotkeyAction.ToggleNameBadges },
@@ -118,8 +118,8 @@ public sealed class HotkeyCoordinatorTests : IDisposable
         Assert.Equal(1, raised);
         Assert.True(_hotkeys.IsActive("F2"));
         Assert.False(_hotkeys.IsActive("Alt+`"));
-        Assert.False(_hotkeys.IsActive("Ctrl+Alt+M"));
-        Assert.False(_hotkeys.IsActive("Ctrl+Alt+C"));
+        Assert.False(_hotkeys.IsActive("Ctrl+Alt+F11"));
+        Assert.False(_hotkeys.IsActive("Ctrl+Alt+F10"));
 
         // Unbound (empty) is not a failure; an unparseable binding and a duplicate are.
         Assert.Equal(new[] { HotkeyAction.ToggleCommandCenter, HotkeyAction.ToggleNameBadges }, _coordinator.FailedActions);

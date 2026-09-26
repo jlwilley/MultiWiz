@@ -9,6 +9,15 @@ public readonly record struct HotkeyBinding(HotkeyModifiers Modifiers, int Virtu
     /// <summary>True when there is a key and it is not itself a modifier key.</summary>
     public bool IsValid => VirtualKey != 0 && VirtualKeys.GetName(VirtualKey) is not null;
 
+    /// <summary>
+    /// True for Ctrl+Alt (with or without Shift, without Win) plus a key that types a character. Windows reports AltGr
+    /// as Ctrl+Alt, so on layouts with AltGr such a global hotkey swallows that character in every program
+    /// (Polish ś is AltGr+S, German µ is AltGr+M). Whether a given key really types something depends on the layout.
+    /// </summary>
+    public bool MayCollideWithAltGr =>
+        (Modifiers & (HotkeyModifiers.Control | HotkeyModifiers.Alt | HotkeyModifiers.Win)) == (HotkeyModifiers.Control | HotkeyModifiers.Alt)
+        && VirtualKeys.IsCharacterKey(VirtualKey);
+
     public static bool TryParse([NotNullWhen(true)] string? text, out HotkeyBinding binding)
     {
         binding = default;

@@ -94,7 +94,33 @@ public sealed class HotkeyBindingTests
         var user = new Dictionary<HotkeyAction, string>();
 
         Assert.Equal("Alt+1", DefaultHotkeys.Resolve(user, HotkeyAction.FocusSlot1));
-        Assert.Equal("Ctrl+Alt+S", DefaultHotkeys.Resolve(user, HotkeyAction.ToggleSwitcher));
+        Assert.Equal("Ctrl+Alt+F9", DefaultHotkeys.Resolve(user, HotkeyAction.ToggleSwitcher));
+    }
+
+    [Fact]
+    public void No_default_binding_takes_over_an_altgr_character()
+    {
+        foreach (var (action, text) in DefaultHotkeys.Bindings)
+        {
+            Assert.True(HotkeyBinding.TryParse(text, out var binding), $"{action}: {text}");
+            Assert.False(binding.MayCollideWithAltGr, $"{action}: {text}");
+        }
+    }
+
+    [Theory]
+    [InlineData("Ctrl+Alt+S", true)]
+    [InlineData("Ctrl+Alt+Shift+C", true)]
+    [InlineData("Ctrl+Alt+7", true)]
+    [InlineData("Ctrl+Alt+[", true)]
+    [InlineData("Ctrl+Alt+F9", false)]
+    [InlineData("Ctrl+Alt+PageDown", false)]
+    [InlineData("Ctrl+Alt+Win+S", false)]
+    [InlineData("Ctrl+S", false)]
+    [InlineData("Alt+S", false)]
+    public void Ctrl_alt_character_keys_may_collide_with_altgr(string text, bool expected)
+    {
+        Assert.True(HotkeyBinding.TryParse(text, out var binding));
+        Assert.Equal(expected, binding.MayCollideWithAltGr);
     }
 
     [Fact]

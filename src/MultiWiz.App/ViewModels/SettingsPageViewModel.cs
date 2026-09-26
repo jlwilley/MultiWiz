@@ -35,6 +35,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
     private readonly IAccountStore _accounts;
     private readonly IHotkeyCoordinator _hotkeys;
     private readonly IDialogService _dialogs;
+    private readonly ClientActions _actions;
     private readonly StatusService _status;
     private readonly ILogger<SettingsPageViewModel> _logger;
     private readonly UiDebouncer _saveDebouncer = new(TimeSpan.FromMilliseconds(350));
@@ -43,6 +44,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
     private readonly UiCoalescer _hotkeyStatusRefresh;
     private HotkeyRowViewModel? _capturingRow;
     private bool _loading;
+    private int _installSearches;
 
     public SettingsPageViewModel(
         ISettingsStore settings,
@@ -50,6 +52,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
         IAccountStore accounts,
         IHotkeyCoordinator hotkeys,
         IDialogService dialogs,
+        ClientActions actions,
         StatusService status,
         UpdateService updates,
         ILogger<SettingsPageViewModel> logger)
@@ -59,6 +62,7 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
         _accounts = accounts;
         _hotkeys = hotkeys;
         _dialogs = dialogs;
+        _actions = actions;
         _status = status;
         _logger = logger;
         Updates = updates;
@@ -73,12 +77,14 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
         _hotkeyStatusRefresh = new UiCoalescer(RefreshHotkeyStatus);
 
         Load(_settings.Current);
-        RefreshInstalls();
         RefreshHotkeyStatus();
 
         _settings.Changed += OnSettingsChanged;
         _installs.Changed += OnInstallsChanged;
         _hotkeys.RegistrationsChanged += OnHotkeyRegistrationsChanged;
+
+        // This runs while the main window is being created; the first discovery must not hold it up.
+        _ = SearchInstallsAsync(rescan: false);
     }
 
     public UpdateService Updates { get; }
@@ -177,7 +183,15 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
     public ObservableCollection<InstallItemViewModel> InstallItems { get; } = [];
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowNoInstallsWarning))]
     public partial bool HasInstalls { get; private set; }
+
+    /// <summary>True while the registry and Steam libraries are being searched for game installs.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowNoInstallsWarning))]
+    public partial bool IsSearchingInstalls { get; private set; } = true;
+
+    public bool ShowNoInstallsWarning => !HasInstalls && !IsSearchingInstalls;
 
     public IReadOnlyList<PreferredInstallViewModel> PreferredInstalls { get; }
 
@@ -241,14 +255,25 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
             _capturingRow = null;
         }
 
-        if (newBinding is not null)
+        try
         {
-            SaveHotkey(row.Action, newBinding);
+            if (newBinding is not null)
+            {
+                SaveHotkey(row.Action, newBinding);
+            }
         }
-
-        if (_capturingRow is null)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _hotkeys.Start();
+            _logger.LogWarning(ex, "Could not save the hotkey for {Action}", row.Action);
+            _status.Show("The hotkey could not be saved. Check that MultiWiz can write to its data folder.", isError: true);
+        }
+        finally
+        {
+            // BeginCapture paused every global hotkey; a failed save must not leave them off for the rest of the session.
+            if (_capturingRow is null)
+            {
+                _hotkeys.Start();
+            }
         }
     }
 
@@ -274,7 +299,14 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
     private Task CheckForUpdatesNowAsync() => Updates.CheckNowAsync();
 
     [RelayCommand]
-    private void RestartToUpdate() => Updates.RestartToApply();
+    private async Task RestartToUpdateAsync()
+    {
+        // Ask before RestartToApply: once it runs, MultiWiz has 60 seconds to exit.
+        if (await _actions.ConfirmExitAsync("Restart to update"))
+        {
+            Updates.RestartToApply();
+        }
+    }
 
     [RelayCommand]
     private void ResetHotkeys()
@@ -329,10 +361,47 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
     [RelayCommand]
     private async Task RescanInstallsAsync()
     {
-        // Registry and Steam library scanning touch the disk; keep the UI responsive meanwhile.
-        await Task.Run(() => _installs.Refresh());
+        await SearchInstallsAsync(rescan: true);
+        if (!IsSearchingInstalls)
+        {
+            _status.Show(InstallItems.Count == 1 ? "Found 1 game install." : $"Found {InstallItems.Count} game installs.");
+        }
+    }
+
+    /// <summary>
+    /// Runs install discovery off the UI thread: it reads the registry and every Steam library, and a library on a
+    /// sleeping or unreachable drive can take many seconds. The first <see cref="IInstallCatalog.GetAll"/> discovers and
+    /// caches; <paramref name="rescan"/> discovers again. The install lists are refreshed once no search is running.
+    /// </summary>
+    private async Task SearchInstallsAsync(bool rescan)
+    {
+        _installSearches++;
+        IsSearchingInstalls = true;
+        try
+        {
+            await Task.Run(() =>
+            {
+                if (rescan)
+                {
+                    _installs.Refresh();
+                }
+                else
+                {
+                    _ = _installs.GetAll();
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Searching for game installs failed");
+        }
+        finally
+        {
+            _installSearches--;
+            IsSearchingInstalls = _installSearches > 0;
+        }
+
         RefreshInstalls();
-        _status.Show(InstallItems.Count == 1 ? "Found 1 game install." : $"Found {InstallItems.Count} game installs.");
     }
 
     [RelayCommand]
@@ -578,6 +647,12 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
 
     private void RefreshInstalls()
     {
+        // While a search runs, GetAll would wait for it on the UI thread; the search refreshes when it ends.
+        if (IsSearchingInstalls)
+        {
+            return;
+        }
+
         var installs = _installs.GetAll();
         InstallItems.Clear();
         foreach (var install in installs.OrderBy(install => install.Game).ThenBy(install => install.Source))
@@ -591,6 +666,11 @@ public sealed partial class SettingsPageViewModel : ObservableObject, IDisposabl
 
     private void RefreshPreferredInstalls()
     {
+        if (IsSearchingInstalls)
+        {
+            return;
+        }
+
         var installs = _installs.GetAll();
         var preferred = _settings.Current.PreferredInstallIds;
         foreach (var picker in PreferredInstalls)

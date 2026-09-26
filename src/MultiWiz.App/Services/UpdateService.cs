@@ -22,8 +22,9 @@ public enum UpdateState
 /// <summary>
 /// Velopack updates from GitHub releases. Stable uses the default "win" channel (so MultiWiz 3 installs update into
 /// v4); Beta checks the "beta" feed and the stable feed and offers whichever is newer. Checks on startup (when enabled)
-/// and every 6 hours, downloads in the background, and applies only when the user chooses to restart.
-/// Observable properties change on the UI thread.
+/// and every 6 hours, downloads in the background, and applies when the user chooses to restart; a downloaded update
+/// the user never restarted for is applied by VelopackApp the next time MultiWiz starts while no other instance runs
+/// (see Program.Main). Observable properties change on the UI thread.
 /// </summary>
 public sealed partial class UpdateService : ObservableObject, IDisposable
 {

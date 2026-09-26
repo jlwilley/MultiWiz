@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using MultiWiz.Core.Teams;
 
@@ -14,6 +15,7 @@ public sealed class JsonTeamStore : ITeamStore
     private readonly ILogger<JsonTeamStore> _logger;
     private readonly Lock _lock = new();
     private List<Team>? _teams;
+    private Dictionary<string, JsonElement>? _documentExtensionData;
     private string? _recoveredFromCorruptFile;
 
     public JsonTeamStore(AppPaths paths, TimeProvider timeProvider, ILogger<JsonTeamStore> logger)
@@ -136,6 +138,7 @@ public sealed class JsonTeamStore : ITeamStore
             _timeProvider,
             CreateFileDefaults(),
             target => _recoveredFromCorruptFile = target);
+        _documentExtensionData = document?.ExtensionData;
         var loaded = (document?.Teams ?? [])
             .Where(team => team is not null && team.Id != Guid.Empty)
             .Select(Normalize)
@@ -156,7 +159,7 @@ public sealed class JsonTeamStore : ITeamStore
 
     private void Commit(List<Team> next)
     {
-        JsonFileStore.Save(_path, new TeamsDocument { Teams = next }, CoreJsonContext.Default.TeamsDocument);
+        JsonFileStore.Save(_path, new TeamsDocument { Teams = next, ExtensionData = _documentExtensionData }, CoreJsonContext.Default.TeamsDocument);
         _teams = next;
     }
 

@@ -50,6 +50,7 @@ IsHungAppWindow
 AttachThreadInput
 GetCurrentThreadId
 SendInput
+GetAsyncKeyState
 VIRTUAL_KEY
 GetWindowRect
 GetClientRect

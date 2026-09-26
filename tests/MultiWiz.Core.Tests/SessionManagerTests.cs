@@ -1,5 +1,6 @@
 using MultiWiz.Core.Platform;
 using MultiWiz.Core.Sessions;
+using MultiWiz.Core.Storage;
 using MultiWiz.Core.Tests.Fakes;
 using MultiWiz.Core.Tests.Support;
 
@@ -491,4 +492,88 @@ public sealed class SessionManagerTests
 
         Assert.Equal("-L login.us.wizard101.com 12000", Assert.Single(h.Launcher.Launches).Request.Arguments);
     }
+
+    [Fact]
+    public async Task Started_clients_are_recorded_until_they_exit()
+    {
+        using var h = new SessionHarness(SessionHarness.FastLogin());
+        var account = h.AddAccount("Storm");
+        var session = await h.Time.RunUntilCompleteAsync(h.Manager.LaunchAsync(account.Id, Ct));
+        var process = Assert.Single(h.Launcher.Launches).Process;
+
+        var record = Assert.Single(ReadRunningClients(h));
+        Assert.Equal(account.Id, record.AccountId);
+        Assert.Equal(session.ProcessId, record.ProcessId);
+        Assert.Equal(process.StartTime!.Value, record.StartedAt);
+
+        var exited = h.WaitForStateAsync(account.Id, ClientSessionState.Exited);
+        process.Exit();
+        await exited;
+
+        Assert.Empty(ReadRunningClients(h));
+    }
+
+    [Fact]
+    public async Task Clients_still_running_after_a_restart_are_picked_up_again()
+    {
+        using var h = new SessionHarness(SessionHarness.FastLogin());
+        var account = h.AddAccount("Storm");
+        var launched = await h.Time.RunUntilCompleteAsync(h.Manager.LaunchAsync(account.Id, Ct));
+
+        // MultiWiz quits (or restarts for an update) without closing the game, and starts again.
+        var restarted = h.CreateManager();
+
+        var adopted = restarted.Find(account.Id);
+        Assert.NotNull(adopted);
+        Assert.Equal(ClientSessionState.Running, adopted.State);
+        Assert.Equal(launched.ProcessId, adopted.ProcessId);
+        Assert.Equal(launched.WindowHandle, adopted.WindowHandle);
+
+        // Launching the account again does not start a second client that would log the first one out.
+        Assert.Equal(adopted, await restarted.LaunchAsync(account.Id, Ct));
+        Assert.Single(h.Launcher.Launches);
+
+        // The adopted client is managed like a launched one: stopping it kills it and ends the session.
+        var exited = h.WaitForStateAsync(account.Id, ClientSessionState.Exited, restarted);
+        Assert.True(restarted.Stop(account.Id));
+        await exited;
+        Assert.Equal(1, h.Launcher.Launches[0].Process.KillCount);
+        Assert.Empty(restarted.Sessions);
+        Assert.Empty(h.CreateManager().Sessions);
+    }
+
+    [Fact]
+    public void Recorded_clients_that_are_gone_or_whose_id_was_reused_are_not_picked_up()
+    {
+        using var h = new SessionHarness(SessionHarness.FastLogin());
+        var reusedId = h.AddAccount("Reused id");
+        var otherProgram = h.AddAccount("Other program");
+        var exited = h.AddAccount("Exited");
+        var deleted = Guid.NewGuid();
+        var startedAt = h.Time.GetUtcNow();
+        h.Launcher.AddRunning(new FakeLaunchedProcess(7001) { StartTime = startedAt + TimeSpan.FromHours(2) });
+        h.Launcher.AddRunning(new FakeLaunchedProcess(7002) { StartTime = startedAt, ProcessName = "notepad" });
+        h.Launcher.AddRunning(new FakeLaunchedProcess(7004) { StartTime = startedAt });
+        JsonFileStore.Save(
+            h.Paths.RunningClientsFile,
+            new RunningClientsDocument
+            {
+                Clients =
+                [
+                    new RunningClient { AccountId = reusedId.Id, ProcessId = 7001, StartedAt = startedAt },
+                    new RunningClient { AccountId = otherProgram.Id, ProcessId = 7002, StartedAt = startedAt },
+                    new RunningClient { AccountId = exited.Id, ProcessId = 7003, StartedAt = startedAt },
+                    new RunningClient { AccountId = deleted, ProcessId = 7004, StartedAt = startedAt },
+                ],
+            },
+            CoreJsonContext.Default.RunningClientsDocument);
+
+        var manager = h.CreateManager();
+
+        Assert.Empty(manager.Sessions);
+        Assert.Empty(ReadRunningClients(h));
+    }
+
+    private static IReadOnlyList<RunningClient> ReadRunningClients(SessionHarness h) =>
+        JsonFileStore.Load(h.Paths.RunningClientsFile, CoreJsonContext.Default.RunningClientsDocument)?.Clients ?? [];
 }

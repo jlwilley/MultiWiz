@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using MultiWiz.Core.Accounts;
 using MultiWiz.Core.Games;
@@ -15,6 +16,7 @@ public sealed class JsonAccountStore : IAccountStore
     private readonly ILogger<JsonAccountStore> _logger;
     private readonly Lock _lock = new();
     private List<Account>? _accounts;
+    private Dictionary<string, JsonElement>? _documentExtensionData;
     private string? _recoveredFromCorruptFile;
 
     public JsonAccountStore(AppPaths paths, TimeProvider timeProvider, ILogger<JsonAccountStore> logger)
@@ -147,6 +149,7 @@ public sealed class JsonAccountStore : IAccountStore
             _logger,
             _timeProvider,
             onQuarantined: target => _recoveredFromCorruptFile = target);
+        _documentExtensionData = document?.ExtensionData;
         var loaded = (document?.Accounts ?? [])
             .Where(account => account is not null && account.Id != Guid.Empty)
             .Select(Normalize)
@@ -160,7 +163,7 @@ public sealed class JsonAccountStore : IAccountStore
 
     private void Commit(List<Account> next)
     {
-        JsonFileStore.Save(_path, new AccountsDocument { Accounts = next }, CoreJsonContext.Default.AccountsDocument);
+        JsonFileStore.Save(_path, new AccountsDocument { Accounts = next, ExtensionData = _documentExtensionData }, CoreJsonContext.Default.AccountsDocument);
         _accounts = next;
     }
 

@@ -70,9 +70,11 @@ the same default channel (`win`) so that v3 installs update straight into v4. Th
   `-beta` tags. MultiWiz 3 never looks at pre-releases, and betas use a different feed anyway.
 - The release workflow enforces this. It fails every stable tag before building unless the repository
   variable `STABLE_RELEASES_ENABLED` is `true` (**Settings → Secrets and variables → Actions →
-  Variables**). Create it only when you are ready to ship 4.0.0 to every v3 user, and leave it set
-  afterwards. A stable tag pushed by mistake while the variable is unset publishes nothing: delete the
-  tag (`git push --delete origin v4.0.0`) and push the one you meant.
+  Variables**). It must be a repository variable: the check runs in the build job, which is outside the
+  `release` environment and can't see that environment's variables. Create it only when you are ready to
+  ship 4.0.0 to every v3 user, and leave it set afterwards. A stable tag pushed by mistake while the
+  variable is unset publishes nothing: delete the tag (`git push --delete origin v4.0.0`) and push the
+  one you meant.
 - There is no rollback. Deleting the GitHub release stops further updates, but anyone who already
   updated stays on v4. Fix forward with a new patch release.
 - The first stable v4 release carries no delta package. The workflow does not build deltas across
@@ -87,13 +89,27 @@ the same default channel (`win`) so that v3 installs update straight into v4. Th
 
 ## What the release workflow does
 
+The workflow has two jobs. Restore, build and test run code from NuGet packages (MSBuild targets,
+analyzers, source generators, test dependencies), so they run in the **build** job. That job has
+read-only permissions and runs outside the `release` environment, so it can't request the OIDC token
+that signs in to Azure or write to the repository. Only the **release** job, which runs in the `release`
+environment, gets that token and write access. It runs no restore, build or test; it takes the build job's
+published files as an artifact and only packages, signs and uploads them.
+
+Build job:
+
 1. Derives the version from the tag (`v4.1.0-beta.1` → `4.1.0-beta.1`) and picks the channel (`beta` if
    the version contains `-`, otherwise stable). A stable tag stops here unless `STABLE_RELEASES_ENABLED`
    is `true`.
 2. Restores, builds (`-p:Version=<version>`) and runs the tests.
-3. Publishes `src/MultiWiz.App` self-contained for `win-x64`.
-4. Restores `vpk` 1.2.158, pinned in [`.config/dotnet-tools.json`](../.config/dotnet-tools.json).
-   Keep it equal to the `Velopack` package version in `Directory.Packages.props`.
+3. Publishes `src/MultiWiz.App` self-contained for `win-x64` and uploads it as the `MultiWiz-win-x64`
+   artifact of the run (kept for 30 days).
+
+Release job (`release` environment):
+
+4. Downloads that artifact and restores `vpk` 1.2.158, pinned in
+   [`.config/dotnet-tools.json`](../.config/dotnet-tools.json). Keep it equal to the `Velopack` package
+   version in `Directory.Packages.props`.
 5. `vpk download github` fetches the previous full package of the same channel to use as the delta
    base (with `--channel beta --pre` for betas).
 6. When all six signing variables are set, it signs in to Azure with OIDC and writes the Artifact
@@ -112,11 +128,12 @@ update package. You can edit the text on the GitHub release page afterwards.
 ### If a release run fails
 
 - **Failed before "Publish GitHub release".** Nothing was published. Fix the problem, then either
-  re-run the job (same commit) or move the tag to the fixed commit:
+  re-run the failed jobs (same commit; a failed release job reuses the build job's artifact) or move the
+  tag to the fixed commit:
   `git tag -d v4.1.0 && git push --delete origin v4.1.0`, then tag and push again.
 - **Failed in or after "Publish GitHub release".** A draft or partial release may already exist, and
   `vpk upload` refuses to upload into an existing release. Delete that release on the Releases page
-  (keep the tag), then re-run the job.
+  (keep the tag), then re-run the failed jobs.
 - Once a release has been public for any length of time, don't re-release the same version. Bump the
   patch number instead.
 
@@ -124,7 +141,8 @@ update package. You can edit the text on the GitHub release page afterwards.
 
 Unsigned installers trigger Windows SmartScreen's "Unknown publisher" warning. Azure Artifact Signing
 (formerly Trusted Signing) signs the app with a Microsoft-issued certificate in your verified name.
-The workflow needs no stored secret: it logs in to Azure with GitHub's OIDC token.
+The workflow needs no stored secret: it logs in to Azure with GitHub's OIDC token, which only the release
+job (not the build job) can request.
 
 When the six variables below are set, `vpk pack --azureTrustedSignFile` signs `MultiWiz.exe`, the app's
 own and third-party DLLs, `Update.exe`, the setup executable and the portable stub. It uses the
@@ -185,7 +203,9 @@ name.
    Why an environment and not the **Tag** entity type: Entra matches the subject exactly, and a Tag
    credential names one specific tag (`v4.1.0`), so every release would need a new credential. The
    release job runs in the `release` environment, and step 8 limits that environment to `v*` tags. The
-   result is the same: only tag-triggered release runs can get an Azure token.
+   result is the same: only tag-triggered release runs can get an Azure token. The build job, which runs
+   the restore, build and tests, stays outside the environment and has no `id-token` permission, so no
+   build or test code can get one either. Don't add `environment: release` or `id-token: write` to it.
 7. **Grant signing rights.** In the Artifact Signing account (or on the certificate profile), open
    **Access control (IAM) → Add role assignment**. Choose **Artifact Signing Certificate Profile
    Signer**, set *Assign access to* to "User, group, or service principal", select
@@ -196,7 +216,8 @@ name.
    - Under **Deployment branches and tags**, choose **Selected branches and tags**, then add a rule
      with ref type **Tag** and pattern `v*`.
    - Optionally add yourself as a **required reviewer**, so every release waits for your approval
-     before it builds.
+     after it builds and passes the tests, before it signs and publishes anything. Approve within 30
+     days, while the build artifact still exists.
 9. **Repository variables.** Go to **Settings → Secrets and variables → Actions → Variables → New
    repository variable** and add all six. They are identifiers, not secrets. You can also define them as
    variables on the `release` environment.

@@ -60,6 +60,46 @@ jobs:
       - name: Publish app (win-x64, self-contained)
         run: dotnet publish src/MultiWiz.App/MultiWiz.App.csproj -c Release -r win-x64 --self-contained -o publish
 
+      # Starts the published app in its hidden smoke-test mode: it opens every page, window and dialog against a
+      # throwaway data folder and exits 0 only if nothing threw. Catches runtime-only failures (XAML resources,
+      # DI resolution, startup crashes) that the build and unit tests cannot see.
+      - name: Smoke test (launch the real app)
+        run: |
+          $result = Join-Path $env:RUNNER_TEMP 'smoke-result.txt'
+          $stdout = Join-Path $env:RUNNER_TEMP 'smoke-stdout.txt'
+          $stderr = Join-Path $env:RUNNER_TEMP 'smoke-stderr.txt'
+          # The app puts its throwaway data folder under %TMP%; keep it where the failure upload looks.
+          $env:TMP = $env:RUNNER_TEMP
+          $env:TEMP = $env:RUNNER_TEMP
+          $process = Start-Process -FilePath 'publish\MultiWiz.exe' `
+            -ArgumentList @('--smoke-test', '--smoke-test-result', "`"$result`"") `
+            -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+          # The app has its own 90 s watchdog; this is the backstop if the process itself hangs.
+          if (-not $process.WaitForExit(150000)) {
+            $process.Kill($true)
+            Write-Output '::error title=Smoke test hung::MultiWiz did not exit within 150 seconds.'
+          }
+          $process.WaitForExit()
+          Write-Output '--- stdout ---'; Get-Content $stdout -ErrorAction SilentlyContinue
+          Write-Output '--- stderr ---'; Get-Content $stderr -ErrorAction SilentlyContinue
+          $text = if (Test-Path $result) { (Get-Content $result -Raw).Trim() } else { '<no result file>' }
+          Write-Output "--- result (exit code $($process.ExitCode)) ---"; Write-Output $text
+          if ($process.ExitCode -ne 0 -or $text -ne 'OK') {
+            Write-Output '::error title=Smoke test failed::MultiWiz failed its startup smoke test; see the log above.'
+            exit 1
+          }
+
+      - name: Upload smoke test output
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-test-output
+          path: |
+            ${{ runner.temp }}/smoke-*.txt
+            ${{ runner.temp }}/MultiWiz-smoke-*/**
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Upload app build
         uses: actions/upload-artifact@v7
         with:

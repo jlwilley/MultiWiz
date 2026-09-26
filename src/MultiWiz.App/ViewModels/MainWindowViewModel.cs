@@ -1,3 +1,4 @@
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MultiWiz.App.Services;
@@ -88,7 +89,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     /// <summary>Read by the window when the user closes it.</summary>
     public bool CloseToTray => _settings.Current.General.CloseToTray;
 
-    public void RequestQuit() => _windows.Quit();
+    /// <summary>The user closed the window (with close-to-tray off): quit, after asking when clients are running.</summary>
+    public void RequestQuit()
+    {
+        // Called from the window's Closing handler; ask after that has returned.
+        Dispatcher.UIThread.Post(() => _ = QuitAsync());
+    }
 
     public void Dispose() => _sessions.SessionChanged -= OnSessionChanged;
 
@@ -102,7 +108,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable
     private void StopAll() => _actions.StopAll();
 
     [RelayCommand]
-    private void RestartToUpdate() => Updates.RestartToApply();
+    private async Task RestartToUpdateAsync()
+    {
+        // Ask before RestartToApply: once it runs, MultiWiz has 60 seconds to exit.
+        if (await _actions.ConfirmExitAsync("Restart to update"))
+        {
+            Updates.RestartToApply();
+        }
+    }
+
+    private async Task QuitAsync()
+    {
+        if (await _actions.ConfirmExitAsync("Quit MultiWiz"))
+        {
+            _windows.Quit();
+        }
+    }
 
     private void OnSessionChanged(object? sender, ClientSession session) => _runningRefresh.Request();
 

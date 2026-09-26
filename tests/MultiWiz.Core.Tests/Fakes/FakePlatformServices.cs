@@ -92,10 +92,29 @@ internal sealed class FakeCredentialVault : ICredentialVault
     private readonly Lock _lock = new();
     private readonly Dictionary<Guid, (string Username, string Password)> _entries = new();
 
+    /// <summary>When false, <see cref="Save"/> stores nothing and reports failure, like a full Credential Manager.</summary>
+    public bool SaveSucceeds { get; set; } = true;
+
+    public int Count
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _entries.Count;
+            }
+        }
+    }
+
     public bool Save(Guid accountId, string username, string password)
     {
         lock (_lock)
         {
+            if (!SaveSucceeds)
+            {
+                return false;
+            }
+
             _entries[accountId] = (username, password);
             return true;
         }

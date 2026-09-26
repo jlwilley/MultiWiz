@@ -29,6 +29,12 @@ public sealed class AppPaths
 
     public string LogsDirectory => Path.Combine(LocalRoot, "logs");
 
+    /// <summary>Machine-local state that is not worth roaming (window positions, running clients).</summary>
+    public string StateDirectory => Path.Combine(LocalRoot, "state");
+
+    /// <summary>The clients MultiWiz started that are still running, so they are picked up again after a restart.</summary>
+    public string RunningClientsFile => Path.Combine(StateDirectory, "running-clients.json");
+
     public string LegacyConfigFile => Path.Combine(RoamingRoot, "config.txt");
     public string LegacySettingsFile => Path.Combine(RoamingRoot, "settings.txt");
 

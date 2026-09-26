@@ -11,6 +11,7 @@ using MultiWiz.Core.Hotkeys;
 using MultiWiz.Core.Platform;
 using MultiWiz.Core.Sessions;
 using MultiWiz.Core.Settings;
+using MultiWiz.Core.Storage;
 using MultiWiz.Core.Switching;
 
 namespace MultiWiz.App;
@@ -19,6 +20,7 @@ public partial class App : Application
 {
     private readonly AppHost? _host;
     private readonly SingleInstanceGuard? _instance;
+    private readonly SmokeTest? _smokeTest;
     private ILogger<App>? _logger;
     private bool _showingErrorDialog;
     private bool _shutDown;
@@ -28,10 +30,14 @@ public partial class App : Application
     {
     }
 
-    internal App(AppHost host, SingleInstanceGuard instance)
+    /// <param name="host">The composition root.</param>
+    /// <param name="instance">The single-instance guard; null in a smoke test, which runs beside a normal instance.</param>
+    /// <param name="smokeTest">The CI smoke test driving this run, or null (every normal run).</param>
+    internal App(AppHost host, SingleInstanceGuard? instance, SmokeTest? smokeTest)
     {
         _host = host;
         _instance = instance;
+        _smokeTest = smokeTest;
     }
 
     public override void Initialize()
@@ -73,25 +79,47 @@ public partial class App : Application
         var hotkeys = services.GetRequiredService<IHotkeyCoordinator>();
         hotkeys.UiActionRequested += (_, action) => Dispatcher.UIThread.Post(() => windows.HandleHotkey(action));
         hotkeys.Start();
+        var failedHotkeys = hotkeys.FailedActions.Count;
+        if (failedHotkeys > 0)
+        {
+            services.GetRequiredService<StatusService>().Show(
+                failedHotkeys == 1
+                    ? "1 hotkey could not be registered, usually because another program uses it. See Settings → Hotkeys."
+                    : $"{failedHotkeys} hotkeys could not be registered, usually because another program uses them. See Settings → Hotkeys.",
+                isError: true);
+        }
 
         services.GetRequiredService<ISessionEvents>().LoginCompleted +=
             (_, _) => Dispatcher.UIThread.Post(windows.ShowMainWindow);
 
         services.GetRequiredService<OverlayManager>().Start();
-        services.GetRequiredService<UpdateService>().Start();
+        if (_smokeTest is null)
+        {
+            services.GetRequiredService<UpdateService>().Start();
+        }
+
         _instance?.ListenForActivation(() => Dispatcher.UIThread.Post(windows.ShowMainWindow));
 
-        // After the main window is up: the one-time MultiWiz 3 import offer.
-        Dispatcher.UIThread.Post(
-            () => _ = OfferLegacyImportAsync(services.GetRequiredService<LegacyImportService>()),
-            DispatcherPriority.Background);
+        // After the main window is up: damaged data files, then the one-time MultiWiz 3 import offer.
+        Dispatcher.UIThread.Post(() => _ = ShowStartupNoticesAsync(services), DispatcherPriority.Background);
+
+        _smokeTest?.Start(desktop, services);
     }
 
-    private async Task OfferLegacyImportAsync(LegacyImportService legacyImport)
+    private async Task ShowStartupNoticesAsync(IServiceProvider services)
     {
         try
         {
-            await legacyImport.OfferOnStartupAsync();
+            await ReportSetAsideFilesAsync(services);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Could not report the data files that were set aside");
+        }
+
+        try
+        {
+            await services.GetRequiredService<LegacyImportService>().OfferOnStartupAsync();
         }
         catch (Exception ex)
         {
@@ -99,9 +127,41 @@ public partial class App : Application
         }
     }
 
+    /// <summary>
+    /// Tells the user when a data file could not be read and was moved aside (see <see cref="JsonAccountStore.RecoveredFromCorruptFile"/>):
+    /// MultiWiz then started without those accounts, teams or settings, and the old data is still in that file.
+    /// </summary>
+    private static async Task ReportSetAsideFilesAsync(IServiceProvider services)
+    {
+        var setAside = new[]
+            {
+                services.GetRequiredService<JsonAccountStore>().RecoveredFromCorruptFile,
+                services.GetRequiredService<JsonTeamStore>().RecoveredFromCorruptFile,
+                services.GetRequiredService<JsonSettingsStore>().RecoveredFromCorruptFile,
+            }
+            .OfType<string>()
+            .ToArray();
+        if (setAside.Length == 0)
+        {
+            return;
+        }
+
+        await services.GetRequiredService<IDialogService>().ShowErrorAsync(
+            "Some MultiWiz data could not be read",
+            "These files were damaged, so MultiWiz set them aside and started without the accounts, teams or settings " +
+            "in them. Nothing in them was deleted: to look at them, open About → Open data folder.",
+            string.Join(Environment.NewLine, setAside));
+    }
+
     private void ReportUnhandledException(Exception exception)
     {
         _logger?.LogError(exception, "Unhandled exception on the UI thread");
+        if (_smokeTest is not null)
+        {
+            _smokeTest.Fail("Unhandled exception on the UI thread", exception);
+            return;
+        }
+
         if (_showingErrorDialog || _shutDown || _host is null)
         {
             return;
@@ -185,6 +245,7 @@ public partial class App : Application
         catch (Exception ex)
         {
             _logger?.LogError(ex, "Shutdown step '{Step}' failed", step);
+            _smokeTest?.Fail($"Shutdown step '{step}' failed", ex);
         }
     }
 }

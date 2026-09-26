@@ -145,10 +145,16 @@ public sealed class JsonSettingsStore : ISettingsStore
             Overlays = settings.Overlays ?? new OverlaySettings(),
             Performance = settings.Performance ?? new PerformanceSettings(),
             Hotkeys = hotkeys.Bindings is null ? hotkeys with { Bindings = new Dictionary<HotkeyAction, string>() } : hotkeys,
+            // A game or install source this build does not know (written by a newer build) reads as undefined; such
+            // entries cannot be used here, so they are dropped instead of failing the whole file.
             CustomInstalls = KeepValid(
                 settings.CustomInstalls,
-                install => install is not null && !string.IsNullOrWhiteSpace(install.Id) && !string.IsNullOrWhiteSpace(install.RootPath)),
-            CustomRealms = KeepValid(settings.CustomRealms, realm => realm is not null),
+                install => install is not null
+                    && !string.IsNullOrWhiteSpace(install.Id)
+                    && !string.IsNullOrWhiteSpace(install.RootPath)
+                    && Enum.IsDefined(install.Game)
+                    && Enum.IsDefined(install.Source)),
+            CustomRealms = KeepValid(settings.CustomRealms, realm => realm is not null && Enum.IsDefined(realm.Game)),
             PreferredInstallIds = settings.PreferredInstallIds ?? new Dictionary<GameKind, string>(),
         };
     }

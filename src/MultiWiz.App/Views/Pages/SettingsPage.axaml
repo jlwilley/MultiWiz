@@ -448,8 +448,11 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
+                <TextBlock Classes="caption" Text="Searching for game installs…"
+                           IsVisible="{Binding IsSearchingInstalls}" />
+
                 <Border Background="{DynamicResource CtpYellowSoftBrush}" CornerRadius="8" Padding="12,8"
-                        IsVisible="{Binding !HasInstalls}">
+                        IsVisible="{Binding ShowNoInstallsWarning}">
                   <StackPanel Orientation="Horizontal" Spacing="10">
                     <PathIcon Data="{StaticResource IconWarning}" Foreground="{DynamicResource CtpYellowBrush}" />
                     <TextBlock TextWrapping="Wrap" VerticalAlignment="Center"

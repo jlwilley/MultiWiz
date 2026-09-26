@@ -158,6 +158,13 @@ public sealed class HotkeyCoordinator : IHotkeyCoordinator
             }
 
             _registrations.Add(registration);
+            if (binding.MayCollideWithAltGr)
+            {
+                // Helps explain "I can't type ś any more" reports from users with AltGr keyboard layouts.
+                _logger.LogInformation(
+                    "Hotkey {Binding} for {Action} is Ctrl+Alt plus a character key; on keyboard layouts with AltGr it takes that character over in every program",
+                    binding, action);
+            }
         }
 
         _failedActions = failed.ToArray();

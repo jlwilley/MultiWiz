@@ -278,14 +278,31 @@ internal sealed unsafe class WindowService : IWindowService
     private static bool IsMaximized(HWND hwnd) =>
         (PInvoke.GetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_STYLE) & MaximizedStyle) != 0;
 
+    // Windows lifts the foreground lock when ALT is pressed, so a synthesized press usually unlocks SetForegroundWindow.
     private static void TapAltKey()
     {
-        var inputs = new INPUT[2];
-        inputs[0].type = INPUT_TYPE.INPUT_KEYBOARD;
+        // The user is holding ALT (the default Alt+N focus hotkeys): their own press already did what the tap does, and
+        // an injected release would mark ALT as up while it is still held, so the next Alt+N would reach the game as N.
+        if ((PInvoke.GetAsyncKeyState((int)VIRTUAL_KEY.VK_MENU) & 0x8000) != 0)
+        {
+            return;
+        }
+
+        // An unassigned key between the press and the release: a lone ALT tap would put the foreground window into
+        // menu mode (SC_KEYMENU), which eats the next keystroke, or switch the input language while Shift is held.
+        const VIRTUAL_KEY MaskKey = (VIRTUAL_KEY)0xE8;
+        var inputs = new INPUT[4];
+        for (var i = 0; i < inputs.Length; i++)
+        {
+            inputs[i].type = INPUT_TYPE.INPUT_KEYBOARD;
+        }
+
         inputs[0].ki.wVk = VIRTUAL_KEY.VK_MENU;
-        inputs[1].type = INPUT_TYPE.INPUT_KEYBOARD;
-        inputs[1].ki.wVk = VIRTUAL_KEY.VK_MENU;
-        inputs[1].ki.dwFlags = KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP;
+        inputs[1].ki.wVk = MaskKey;
+        inputs[2].ki.wVk = MaskKey;
+        inputs[2].ki.dwFlags = KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP;
+        inputs[3].ki.wVk = VIRTUAL_KEY.VK_MENU;
+        inputs[3].ki.dwFlags = KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP;
         PInvoke.SendInput(inputs, sizeof(INPUT));
     }
 

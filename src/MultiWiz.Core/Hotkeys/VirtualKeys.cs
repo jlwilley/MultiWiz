@@ -15,6 +15,10 @@ public static class VirtualKeys
 
     public static bool TryGetKey(string name, out int virtualKey) => KeysByName.TryGetValue(name.Trim(), out virtualKey);
 
+    /// <summary>Letters, digits and the OEM punctuation keys: the keys a keyboard layout maps to characters.</summary>
+    public static bool IsCharacterKey(int virtualKey) =>
+        virtualKey is (>= 0x30 and <= 0x39) or (>= 0x41 and <= 0x5A) or (>= 0xBA and <= 0xC0) or (>= 0xDB and <= 0xDF) or 0xE2;
+
     private static Dictionary<int, string> BuildNames()
     {
         var names = new Dictionary<int, string>

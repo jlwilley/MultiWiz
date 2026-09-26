@@ -237,13 +237,20 @@ public sealed class ClientSwitcher : IClientSwitcher, IDisposable
         lock (_rebuildLock)
         {
             Guid? teamId;
+            Guid? currentSnapshot;
             lock (_lock)
             {
                 teamId = _activeTeamId;
+                currentSnapshot = _currentAccountId;
             }
 
             var team = teamId is { } id ? _teams.Find(id) : null;
             var next = BuildOrder(team);
+
+            // A client whose window took the foreground before the session manager recorded that window is current
+            // but not in the order yet; it stays current (CurrentLocked returns null until its window joins the order),
+            // so it is focused as soon as the window is detected. Only a client that is gone is forgotten.
+            var currentAlive = currentSnapshot is { } snapshotId && _sessions.Find(snapshotId) is { IsAlive: true };
 
             lock (_lock)
             {
@@ -254,9 +261,10 @@ public sealed class ClientSwitcher : IClientSwitcher, IDisposable
                     forceChanged = true;
                 }
 
-                if (_currentAccountId is { } currentId && Array.FindIndex(next, session => session.AccountId == currentId) < 0)
+                // If _currentAccountId changed since the snapshot, SetCurrent just set it to an alive session: keep it.
+                if (_currentAccountId is { } currentId && currentId == currentSnapshot && !currentAlive)
                 {
-                    // The focused client exited (or lost its window).
+                    // The focused client exited.
                     _currentAccountId = null;
                     forceChanged = true;
                 }

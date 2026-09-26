@@ -113,6 +113,25 @@ public sealed class JsonFileStoreTests : IDisposable
     }
 
     [Fact]
+    public void A_corrupt_file_held_open_by_another_program_is_still_set_aside()
+    {
+        var path = _temp.Combine("accounts.json");
+        File.WriteAllText(path, "not json");
+        string? reported = null;
+
+        // Like a scanner or sync tool that opened the file without FILE_SHARE_DELETE: on Windows the rename fails and
+        // a copy is kept instead.
+        using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            Assert.Null(JsonFileStore.Load(
+                path, CoreJsonContext.Default.AccountsDocument, NullLogger.Instance, onQuarantined: target => reported = target));
+        }
+
+        Assert.NotNull(reported);
+        Assert.Equal("not json", File.ReadAllText(reported));
+    }
+
+    [Fact]
     public void Json_null_loads_as_null_without_quarantining()
     {
         var path = _temp.Combine("accounts.json");
@@ -272,6 +291,29 @@ public sealed class JsonAccountStoreTests : IDisposable
         Assert.Equal(new[] { "First", "Second" }, all.Select(account => account.DisplayName).ToArray());
         Assert.Equal(GameKind.Pirate101, all[0].Game);
         Assert.Equal("w101-us", all[1].RealmId);
+    }
+
+    [Fact]
+    public void Properties_written_by_a_newer_version_survive_a_save()
+    {
+        Directory.CreateDirectory(_paths.DataDirectory);
+        var id = Guid.NewGuid();
+        File.WriteAllText(_paths.AccountsFile, $$"""
+            {
+              "schemaVersion": 1,
+              "futureDocumentSetting": "kept",
+              "accounts": [ { "id": "{{id}}", "displayName": "Storm", "username": "storm", "futureOptIn": true } ]
+            }
+            """);
+        var store = CreateStore();
+
+        store.Upsert(NewAccount("Fresh"));
+
+        using var saved = JsonDocument.Parse(File.ReadAllText(_paths.AccountsFile));
+        Assert.Equal("kept", saved.RootElement.GetProperty("futureDocumentSetting").GetString());
+        var first = saved.RootElement.GetProperty("accounts")[0];
+        Assert.Equal(id, first.GetProperty("id").GetGuid());
+        Assert.True(first.GetProperty("futureOptIn").GetBoolean());
     }
 
     private JsonAccountStore CreateStore() => new(_paths, TimeProvider.System, NullLogger<JsonAccountStore>.Instance);
@@ -484,6 +526,69 @@ public sealed class JsonSettingsStoreTests : IDisposable
         Assert.Equal(new AppSettings().Audio, store.Current.Audio);
         var quarantined = Assert.Single(Directory.GetFiles(_paths.DataDirectory, "settings.json.corrupt-*"));
         Assert.Equal(quarantined, store.RecoveredFromCorruptFile);
+    }
+
+    [Fact]
+    public void Enum_names_from_a_newer_version_do_not_throw_the_settings_away()
+    {
+        Directory.CreateDirectory(_paths.DataDirectory);
+        File.WriteAllText(_paths.SettingsFile, """
+            {
+              "general": { "theme": "HighContrast", "updateChannel": "Nightly", "closeGamesOnExit": true },
+              "login": { "autoLogin": false },
+              "hotkeys": { "bindings": { "Screenshot": "Ctrl+Alt+P", "NextClient": "F2", "PreviousClient": null } },
+              "preferredInstallIds": { "Wizard102": "custom-2", "Pirate101": "custom-1" },
+              "customInstalls": [
+                { "id": "custom-1", "game": "Pirate101", "source": "Custom", "rootPath": "E:\\Pirate101" },
+                { "id": "custom-2", "game": "Wizard102", "source": "Custom", "rootPath": "E:\\Wizard102" },
+                { "id": "custom-3", "game": "Wizard101", "source": "Cloud", "rootPath": "E:\\Cloud" }
+              ],
+              "customRealms": [
+                { "id": "private", "game": "Wizard101", "displayName": "Private", "loginHost": "login.example.test" },
+                { "id": "future", "game": "Wizard102", "displayName": "Future", "loginHost": "login.example.test" }
+              ],
+              "legacyImportHandled": true
+            }
+            """);
+        var store = CreateStore();
+
+        var settings = store.Current;
+
+        Assert.Null(store.RecoveredFromCorruptFile);
+        Assert.Empty(Directory.GetFiles(_paths.DataDirectory, "settings.json.corrupt-*"));
+        Assert.Equal(ThemePreference.Dark, settings.General.Theme);
+        Assert.Equal(UpdateChannel.Stable, settings.General.UpdateChannel);
+        Assert.True(settings.General.CloseGamesOnExit);
+        Assert.False(settings.Login.AutoLogin);
+        var binding = Assert.Single(settings.Hotkeys.Bindings);
+        Assert.Equal(HotkeyAction.NextClient, binding.Key);
+        Assert.Equal("F2", binding.Value);
+        Assert.Equal(new[] { new KeyValuePair<GameKind, string>(GameKind.Pirate101, "custom-1") }, settings.PreferredInstallIds.ToArray());
+        Assert.Equal("custom-1", Assert.Single(settings.CustomInstalls).Id);
+        Assert.Equal("private", Assert.Single(settings.CustomRealms).Id);
+        Assert.True(settings.LegacyImportHandled);
+    }
+
+    [Fact]
+    public void Settings_written_by_a_newer_version_survive_a_save()
+    {
+        Directory.CreateDirectory(_paths.DataDirectory);
+        File.WriteAllText(_paths.SettingsFile, """
+            {
+              "futureTopLevel": { "nested": [1, 2] },
+              "audio": { "enabled": true, "futureAudioOption": 7 }
+            }
+            """);
+        var store = CreateStore();
+
+        store.Update(settings => settings with { Audio = settings.Audio with { UnfocusedVolumePercent = 25 } });
+
+        using var saved = JsonDocument.Parse(File.ReadAllText(_paths.SettingsFile));
+        Assert.Equal(2, saved.RootElement.GetProperty("futureTopLevel").GetProperty("nested")[1].GetInt32());
+        var audio = saved.RootElement.GetProperty("audio");
+        Assert.Equal(7, audio.GetProperty("futureAudioOption").GetInt32());
+        Assert.Equal(25, audio.GetProperty("unfocusedVolumePercent").GetInt32());
+        Assert.Equal(25, CreateStore().Current.Audio.UnfocusedVolumePercent);
     }
 
     private JsonSettingsStore CreateStore() => new(_paths, TimeProvider.System, NullLogger<JsonSettingsStore>.Instance);

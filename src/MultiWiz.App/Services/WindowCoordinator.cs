@@ -17,6 +17,12 @@ namespace MultiWiz.App.Services;
 /// </summary>
 public sealed class WindowCoordinator
 {
+    /// <summary>
+    /// How long after the Command Center lost activation it still counts as the window the user was looking at:
+    /// clicking the main window's Command Center button (or the tray) takes the activation away just before the click.
+    /// </summary>
+    private const long RecentlyActiveMilliseconds = 700;
+
     private readonly IServiceProvider _services;
     private readonly IWindowService _windowService;
     private readonly ISettingsStore _settings;
@@ -24,6 +30,7 @@ public sealed class WindowCoordinator
     private MainWindow? _mainWindow;
     private SwitcherWindow? _switcherWindow;
     private CommandCenterWindow? _commandCenterWindow;
+    private long? _commandCenterDeactivatedAt;
 
     public WindowCoordinator(
         IServiceProvider services,
@@ -100,8 +107,10 @@ public sealed class WindowCoordinator
 
     public void ToggleCommandCenter()
     {
-        // A minimized Command Center counts as hidden: the toggle brings it back instead of hiding it.
-        if (_commandCenterWindow is { IsVisible: true } visible && visible.WindowState != WindowState.Minimized)
+        // Hide it only when the user is looking at it. Minimized, or covered by the game the user just picked from a
+        // tile (it is not topmost), counts as hidden: the toggle brings it back to the front instead.
+        if (_commandCenterWindow is { IsVisible: true } visible && visible.WindowState != WindowState.Minimized
+            && (visible.IsActive || Environment.TickCount64 - _commandCenterDeactivatedAt < RecentlyActiveMilliseconds))
         {
             visible.Hide();
             return;
@@ -120,6 +129,12 @@ public sealed class WindowCoordinator
 
         _commandCenterWindow.Show();
         _commandCenterWindow.Activate();
+
+        // Same foreground-lock fallback as ShowMainWindow (the hotkey arrives while a game is in front).
+        if (!_commandCenterWindow.IsActive && _commandCenterWindow.TryGetPlatformHandle() is { } handle)
+        {
+            _windowService.Focus(handle.Handle);
+        }
     }
 
     public void ToggleNameBadges() =>
@@ -184,6 +199,7 @@ public sealed class WindowCoordinator
     private CommandCenterWindow CreateCommandCenterWindow()
     {
         var window = new CommandCenterWindow { DataContext = _services.GetRequiredService<CommandCenterViewModel>() };
+        window.Deactivated += (_, _) => _commandCenterDeactivatedAt = Environment.TickCount64;
         window.Attach(
             _services.GetRequiredService<IThumbnailService>(),
             _services.GetRequiredService<WindowPlacementStore>(),

@@ -10,6 +10,9 @@ internal sealed class FakeAccountStore : IAccountStore
 
     public event EventHandler? Changed;
 
+    /// <summary>When set, <see cref="Upsert"/> throws it instead of saving, like a locked or full disk.</summary>
+    public Exception? UpsertException { get; set; }
+
     public Account Add(string displayName, GameKind game = GameKind.Wizard101, string? realmId = null, string? installId = null)
     {
         var account = new Account
@@ -43,6 +46,11 @@ internal sealed class FakeAccountStore : IAccountStore
 
     public void Upsert(Account account)
     {
+        if (UpsertException is { } error)
+        {
+            throw error;
+        }
+
         lock (_lock)
         {
             var index = _accounts.FindIndex(existing => existing.Id == account.Id);

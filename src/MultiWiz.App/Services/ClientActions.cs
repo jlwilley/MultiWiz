@@ -18,8 +18,10 @@ public sealed class ClientActions
     private readonly IAccountStore _accounts;
     private readonly ISettingsStore _settings;
     private readonly WindowCoordinator _windows;
+    private readonly IDialogService _dialogs;
     private readonly StatusService _status;
     private readonly ILogger<ClientActions> _logger;
+    private bool _confirmingExit;
 
     public ClientActions(
         ISessionManager sessions,
@@ -28,6 +30,7 @@ public sealed class ClientActions
         IAccountStore accounts,
         ISettingsStore settings,
         WindowCoordinator windows,
+        IDialogService dialogs,
         StatusService status,
         ILogger<ClientActions> logger)
     {
@@ -37,6 +40,7 @@ public sealed class ClientActions
         _accounts = accounts;
         _settings = settings;
         _windows = windows;
+        _dialogs = dialogs;
         _status = status;
         _logger = logger;
     }
@@ -53,7 +57,8 @@ public sealed class ClientActions
         _status.Show(accountIds.Count == 1
             ? $"Launching {AccountName(accountIds[0])}…"
             : $"Launching {accountIds.Count} accounts…");
-        Observe(LaunchManyCoreAsync(accountIds), "launch");
+        // Off the UI thread: the start of a launch (install lookup, Steam, Process.Start) runs before its first await.
+        Observe(Task.Run(() => LaunchManyCoreAsync(accountIds)), "launch");
     }
 
     public void LaunchTeam(Guid teamId)
@@ -76,10 +81,48 @@ public sealed class ClientActions
         }
 
         _status.Show($"Launching {team.Name}…");
-        Observe(LaunchTeamCoreAsync(team), "team launch");
+        // Off the UI thread: arranging an already running team moves other processes' windows, which waits for them.
+        Observe(Task.Run(() => LaunchTeamCoreAsync(team)), "team launch");
     }
 
     public bool Stop(Guid accountId) => _sessions.Stop(accountId);
+
+    /// <summary>
+    /// Before MultiWiz quits or restarts: when game clients are running, asks whether to go ahead, saying what happens
+    /// to them (closed with "Close games on exit", otherwise left running without MultiWiz). True to go ahead.
+    /// </summary>
+    public async Task<bool> ConfirmExitAsync(string actionText)
+    {
+        var running = _sessions.Sessions.Count(session => session.IsAlive);
+        if (running == 0)
+        {
+            return true;
+        }
+
+        if (_confirmingExit)
+        {
+            return false; // The question is already on screen.
+        }
+
+        _confirmingExit = true;
+        try
+        {
+            var closesGames = _settings.Current.General.CloseGamesOnExit;
+            var clients = running == 1 ? "1 game client is" : $"{running} game clients are";
+            return await _dialogs.ConfirmAsync(
+                $"{actionText}?",
+                closesGames
+                    ? $"{clients} running and will be closed (Settings → General → \"Close game clients when MultiWiz exits\")."
+                    : $"{clients} running. They keep running, but without MultiWiz's hotkeys, audio switching and " +
+                      "name badges while MultiWiz is closed.",
+                actionText,
+                isDestructive: closesGames);
+        }
+        finally
+        {
+            _confirmingExit = false;
+        }
+    }
 
     public void StopAll()
     {

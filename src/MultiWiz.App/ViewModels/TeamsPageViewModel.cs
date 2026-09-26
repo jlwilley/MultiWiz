@@ -223,10 +223,17 @@ public sealed partial class TeamsPageViewModel : ObservableObject, IDisposable
 
     private void SaveEditor()
     {
-        if (Editor is { } editor && _teams.Find(editor.TeamId) is not null)
+        if (Editor is not { } editor || _teams.Find(editor.TeamId) is not { } stored)
         {
-            _teams.Upsert(editor.BuildTeam());
+            return;
         }
+
+        // The editor only shows members whose account exists. Keep the others (for example when accounts.json could
+        // not be read and was set aside): saving must not drop them for good. A deleted account is not among them,
+        // because deleting removes it from every stored team first.
+        var team = editor.BuildTeam();
+        var hidden = stored.AccountIds.Where(id => _accounts.Find(id) is null && !team.AccountIds.Contains(id)).ToArray();
+        _teams.Upsert(hidden.Length == 0 ? team : team with { AccountIds = [.. team.AccountIds, .. hidden] });
     }
 
     private void OnTeamsChanged(object? sender, EventArgs e) => _reloadTeams.Request();

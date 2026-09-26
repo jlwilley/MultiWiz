@@ -9,9 +9,12 @@ on:
     tags:
       - 'v*'
 
+# Nothing gets write access or the OIDC token by default. Restore, build and test run third-party code (MSBuild
+# targets, analyzers and source generators from NuGet packages, test dependencies), so they run in the `build` job,
+# which can neither request the Azure signing token nor write to the repository. Only the `release` job, which runs
+# no restore, build or test, gets both.
 permissions:
-  contents: write # create the GitHub release and upload its assets
-  id-token: write # OIDC token for azure/login (code signing)
+  contents: read
 
 # One release at a time, so each run builds its delta from the release before it.
 concurrency:
@@ -33,12 +36,16 @@ env:
   RELEASES_DIR: releases
 
 jobs:
-  release:
-    name: Build and publish release
+  build:
+    name: Build and test
     runs-on: windows-latest
-    # The Azure federated credential trusts this environment (restrict it to v* tags in the repository settings).
-    environment: release
-    timeout-minutes: 45
+    # Read-only and outside the `release` environment: no OIDC token, no write access, no environment variables.
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      beta: ${{ steps.version.outputs.beta }}
     defaults:
       run:
         shell: pwsh
@@ -47,10 +54,11 @@ jobs:
       - name: Check out
         uses: actions/checkout@v7
         with:
-          # No later step uses git; don't leave the write-scoped token in .git/config during build and test.
+          # No later step uses git; don't leave the token in .git/config during build and test.
           persist-credentials: false
 
       - name: Determine version and channel
+        id: version
         env:
           TAG: ${{ github.ref_name }}
           STABLE_RELEASES_ENABLED: ${{ vars.STABLE_RELEASES_ENABLED }}
@@ -74,9 +82,8 @@ jobs:
             exit 1
           }
 
-          Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_TAG=$env:TAG"
           Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_VERSION=$version"
-          Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_BETA=$beta"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value @("version=$version", "beta=$beta")
           Write-Output "Releasing MultiWiz $version (beta: $beta) from tag $env:TAG"
 
       - name: Set up .NET
@@ -95,6 +102,65 @@ jobs:
 
       - name: Publish app (win-x64, self-contained)
         run: dotnet publish $env:APP_PROJECT -c Release -r win-x64 --self-contained -o $env:PUBLISH_DIR "-p:Version=$env:RELEASE_VERSION"
+
+      # The published files are the only thing that crosses into the signing job.
+      - name: Upload app build
+        uses: actions/upload-artifact@v7
+        with:
+          name: MultiWiz-win-x64
+          path: ${{ env.PUBLISH_DIR }}
+          if-no-files-found: error
+          # Outlives a pending `release` environment approval (those expire after 30 days).
+          retention-days: 30
+
+  release:
+    name: Sign and publish release
+    needs: build
+    runs-on: windows-latest
+    # The Azure federated credential trusts this environment (restrict it to v* tags in the repository settings).
+    environment: release
+    # The only job that can request the OIDC token azure/login exchanges for the signing identity. It runs no
+    # restore, build or test; the only third-party code here is the actions below and vpk (pinned).
+    permissions:
+      contents: write # create the GitHub release and upload its assets
+      id-token: write # OIDC token for azure/login (code signing)
+    timeout-minutes: 30
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_VERSION: ${{ needs.build.outputs.version }}
+      RELEASE_BETA: ${{ needs.build.outputs.beta }}
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Check version
+        run: |
+          # The build job validated the tag and applied the stable-release gate. Make sure its outputs arrived and
+          # still match the tag, so a missing output can never publish a beta to the stable "win" channel.
+          $version = "$env:RELEASE_VERSION"
+          $beta = if ($version.Contains('-')) { 'true' } else { 'false' }
+          if ($version -eq '' -or "$env:RELEASE_TAG" -cne "v$version" -or "$env:RELEASE_BETA" -cne $beta) {
+            Write-Output "::error title=Version mismatch::The build job reported version '$version' (beta: '$env:RELEASE_BETA') for tag '$env:RELEASE_TAG'."
+            exit 1
+          }
+
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # Only for global.json, the vpk tool manifest, the icon and the release notes. No step uses git.
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Download app build
+        uses: actions/download-artifact@v8
+        with:
+          name: MultiWiz-win-x64
+          path: ${{ env.PUBLISH_DIR }}
 
       - name: Install vpk (pinned in .config/dotnet-tools.json)
         run: dotnet tool restore

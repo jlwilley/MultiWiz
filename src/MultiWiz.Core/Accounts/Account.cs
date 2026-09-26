@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using MultiWiz.Core.Games;
 
 namespace MultiWiz.Core.Accounts;
@@ -31,4 +33,11 @@ public sealed record Account
 
     /// <summary>Position in the account list (ascending).</summary>
     public int SortOrder { get; init; }
+
+    /// <summary>
+    /// Properties this build does not know (written by a newer one), kept so a save does not drop them. Only the
+    /// serializer sets this (extension data cannot be init-only with source-generated metadata).
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }

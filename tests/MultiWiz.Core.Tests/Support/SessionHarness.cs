@@ -4,6 +4,7 @@ using MultiWiz.Core.Accounts;
 using MultiWiz.Core.Games;
 using MultiWiz.Core.Sessions;
 using MultiWiz.Core.Settings;
+using MultiWiz.Core.Storage;
 using MultiWiz.Core.Tests.Fakes;
 
 namespace MultiWiz.Core.Tests.Support;
@@ -27,21 +28,11 @@ internal sealed class SessionHarness : IDisposable
         Locator.Installs.Add(StandaloneInstall);
 
         _installCatalog = new InstallCatalog(Locator, Settings, NullLogger<InstallCatalog>.Instance);
-        Manager = new SessionManager(
-            Accounts,
-            new RealmCatalog(Settings),
-            _installCatalog,
-            Settings,
-            Steam,
-            Launcher,
-            Windows,
-            Input,
-            Vault,
-            Audio,
-            Throttler,
-            Time,
-            NullLogger<SessionManager>.Instance);
+        Paths = Temp.CreateAppPaths();
+        Manager = CreateManager();
     }
+
+    public AppPaths Paths { get; }
 
     public FakeTimeProvider Time { get; } = new(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
 
@@ -81,6 +72,23 @@ internal sealed class SessionHarness : IDisposable
         RefocusAfterLogin = refocus,
     };
 
+    /// <summary>A new manager over the same fakes and files, like MultiWiz starting again.</summary>
+    public SessionManager CreateManager() => new(
+        Accounts,
+        new RealmCatalog(Settings),
+        _installCatalog,
+        Settings,
+        Steam,
+        Launcher,
+        Windows,
+        Input,
+        Vault,
+        Audio,
+        Throttler,
+        Paths,
+        Time,
+        NullLogger<SessionManager>.Instance);
+
     public Account AddAccount(string name, string? password = "correct horse", string? installId = null)
     {
         var account = Accounts.Add(name, installId: installId);
@@ -107,10 +115,10 @@ internal sealed class SessionHarness : IDisposable
     }
 
     /// <summary>Completes when a session of the account reaches <paramref name="state"/> (real-time safety timeout).</summary>
-    public Task<ClientSession> WaitForStateAsync(Guid accountId, ClientSessionState state)
+    public Task<ClientSession> WaitForStateAsync(Guid accountId, ClientSessionState state, SessionManager? manager = null)
     {
         var reached = new TaskCompletionSource<ClientSession>(TaskCreationOptions.RunContinuationsAsynchronously);
-        Manager.SessionChanged += (_, session) =>
+        (manager ?? Manager).SessionChanged += (_, session) =>
         {
             if (session.AccountId == accountId && session.State == state)
             {

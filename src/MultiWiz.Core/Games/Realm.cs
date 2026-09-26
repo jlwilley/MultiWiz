@@ -1,3 +1,6 @@
+using System.Text.Json.Serialization;
+using MultiWiz.Core.Storage;
+
 namespace MultiWiz.Core.Games;
 
 /// <summary>
@@ -8,6 +11,8 @@ public sealed record Realm
 {
     /// <summary>Stable identifier, e.g. "w101-us". Referenced by <see cref="Accounts.Account.RealmId"/>.</summary>
     public required string Id { get; init; }
+    /// <summary>A game this build does not know (from a newer build's settings) reads as an undefined value.</summary>
+    [JsonConverter(typeof(TolerantEnumConverter<GameKind>))]
     public required GameKind Game { get; init; }
     public required string DisplayName { get; init; }
     public required string LoginHost { get; init; }

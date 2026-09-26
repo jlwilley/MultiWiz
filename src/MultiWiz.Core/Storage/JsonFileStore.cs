@@ -13,10 +13,11 @@ public static class JsonFileStore
 
     /// <summary>
     /// Reads <paramref name="path"/>. Returns null when the file does not exist or contains JSON <c>null</c>.
-    /// A file that is not valid JSON for <typeparamref name="T"/> is renamed to
+    /// A file that is not valid JSON for <typeparamref name="T"/> is renamed (or, if that keeps failing, copied) to
     /// <c>&lt;name&gt;.corrupt-&lt;yyyyMMddHHmmss&gt;</c> (local time) so it is kept for inspection, null is returned, and
     /// <paramref name="onQuarantined"/> receives the new path so the user can be told where the old data went.
-    /// I/O errors are not swallowed: treating an unreadable file as empty would let the next save overwrite it.
+    /// I/O errors are not swallowed, including failing to set a corrupt file aside: treating an unreadable file as
+    /// empty would let the next save overwrite it.
     /// </summary>
     /// <param name="defaults">
     /// Values for the properties the file lacks (see <see cref="JsonDefaults"/>); without it such properties get
@@ -52,11 +53,10 @@ public static class JsonFileStore
         }
         catch (JsonException ex)
         {
-            if (Quarantine(path, ex, logger, timeProvider ?? TimeProvider.System) is { } target)
-            {
-                onQuarantined?.Invoke(target);
-            }
-
+            // Throws when the file can be neither moved nor copied aside: returning null would let the next save
+            // overwrite the only copy of the data.
+            var target = Quarantine(path, ex, logger, timeProvider ?? TimeProvider.System);
+            onQuarantined?.Invoke(target);
             return null;
         }
     }
@@ -122,8 +122,13 @@ public static class JsonFileStore
         MaxDepth = options.MaxDepth,
     };
 
-    /// <summary>Moves a corrupt file aside. Returns its new path, or null if it could not be moved.</summary>
-    private static string? Quarantine(string path, JsonException error, ILogger? logger, TimeProvider timeProvider)
+    /// <summary>
+    /// Moves a corrupt file aside and returns its new path. A scanner or sync tool that holds the file without
+    /// FILE_SHARE_DELETE makes the rename fail for a moment, so it is retried like <see cref="Replace"/>; if it keeps
+    /// failing, the file is copied aside instead (that only needs read access, which the load just had). Throws an
+    /// <see cref="IOException"/> when neither works, leaving the file untouched.
+    /// </summary>
+    private static string Quarantine(string path, JsonException error, ILogger? logger, TimeProvider timeProvider)
     {
         var stamp = timeProvider.GetLocalNow().ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
         var target = $"{path}.corrupt-{stamp}";
@@ -132,16 +137,37 @@ public static class JsonFileStore
             target = $"{path}.corrupt-{stamp}-{attempt}";
         }
 
-        try
+        for (var attempt = 1; ; attempt++)
         {
-            File.Move(path, target);
-            logger?.LogWarning(error, "{Path} was not valid JSON; it was renamed to {Target} and defaults are used instead", path, target);
-            return target;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            logger?.LogError(ex, "{Path} was not valid JSON and could not be renamed", path);
-            return null;
+            try
+            {
+                File.Move(path, target);
+                logger?.LogWarning(error, "{Path} was not valid JSON; it was renamed to {Target} and defaults are used instead", path, target);
+                return target;
+            }
+            catch (Exception ex) when (attempt < ReplaceAttempts && ex is IOException or UnauthorizedAccessException)
+            {
+                Thread.Sleep(ReplaceRetryDelay * attempt);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                try
+                {
+                    File.Copy(path, target, overwrite: false);
+                }
+                catch (Exception copyError) when (copyError is IOException or UnauthorizedAccessException)
+                {
+                    logger?.LogError(copyError, "{Path} was not valid JSON and could not be renamed or copied aside", path);
+                    throw new IOException($"{path} is not valid JSON and could not be set aside, so it was left untouched.", copyError);
+                }
+
+                logger?.LogWarning(
+                    ex,
+                    "{Path} was not valid JSON and could not be renamed; a copy was saved as {Target} and defaults are used instead",
+                    path,
+                    target);
+                return target;
+            }
         }
     }
 

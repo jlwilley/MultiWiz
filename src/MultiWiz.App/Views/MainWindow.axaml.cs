@@ -13,7 +13,7 @@ public partial class MainWindow : Window
 {
     private const string PlacementKey = "main";
 
-    private WindowPlacementStore? _placements;
+    private WindowPlacementTracker? _placement;
     private WindowState _restoreState = WindowState.Normal;
 
     public MainWindow()
@@ -24,20 +24,8 @@ public partial class MainWindow : Window
     /// <summary>Restores the last size/position (if still on a connected screen) and remembers future ones.</summary>
     public void Attach(WindowPlacementStore placements)
     {
-        _placements = placements;
-        if (placements.Get(PlacementKey) is not { } placement || !IsOnScreen(placement))
-        {
-            return;
-        }
-
-        WindowStartupLocation = WindowStartupLocation.Manual;
-        Position = new PixelPoint(placement.X, placement.Y);
-        Width = Math.Max(MinWidth, placement.Width);
-        Height = Math.Max(MinHeight, placement.Height);
-        if (placement.IsMaximized)
-        {
-            WindowState = WindowState.Maximized;
-        }
+        _placement = new WindowPlacementTracker(this, placements, PlacementKey);
+        _placement.Restore();
     }
 
     /// <summary>Shows the window if it is hidden in the tray, restores it if minimized, and activates it.</summary>
@@ -70,13 +58,15 @@ public partial class MainWindow : Window
         }
         else if (DataContext is MainWindowViewModel { MinimizeToTray: true })
         {
+            // Save now: quitting from the tray later closes the window while it is hidden.
+            _placement?.Save();
             Hide();
         }
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        SavePlacement();
+        _placement?.Save();
 
         // Only the user closing the window is intercepted; app shutdown and programmatic closes go through.
         if (e.CloseReason == WindowCloseReason.WindowClosing && !e.IsProgrammatic
@@ -95,29 +85,4 @@ public partial class MainWindow : Window
 
         base.OnClosing(e);
     }
-
-    private void SavePlacement()
-    {
-        if (_placements is null || !IsVisible || WindowState == WindowState.Minimized)
-        {
-            return;
-        }
-
-        if (WindowState == WindowState.Maximized)
-        {
-            // Keep the last normal bounds so un-maximizing next time lands somewhere sensible.
-            var previous = _placements.Get(PlacementKey);
-            _placements.Set(PlacementKey, previous is null
-                ? new WindowPlacement(Position.X, Position.Y, Width, Height, IsMaximized: true)
-                : previous with { IsMaximized = true });
-            return;
-        }
-
-        _placements.Set(
-            PlacementKey,
-            new WindowPlacement(Position.X, Position.Y, ClientSize.Width, ClientSize.Height, IsMaximized: false));
-    }
-
-    private bool IsOnScreen(WindowPlacement placement) =>
-        Screens.ScreenFromPoint(new PixelPoint(placement.X + 48, placement.Y + 16)) is not null;
 }

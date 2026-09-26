@@ -13,9 +13,9 @@ namespace MultiWiz.App.Overlays;
 /// <summary>
 /// Keeps one <see cref="NameBadgeOverlay"/> per running client with a window while name badges are enabled.
 /// Badges carry the client's switcher slot and are hidden while neither a game nor MultiWiz is in front, so they
-/// never float over unrelated apps. Badges of background clients also hide where the game window in front covers
-/// them, because every badge lives in the topmost band above all game windows. UI thread, except for the Core event
-/// handlers, which only schedule work.
+/// never float over unrelated apps. Badges also hide where the window in front covers them (another game, or
+/// MultiWiz's own main window or Command Center), because every badge lives in the topmost band above all normal
+/// windows. UI thread, except for the Core event handlers, which only schedule work.
 /// </summary>
 public sealed class OverlayManager : IDisposable
 {
@@ -30,7 +30,7 @@ public sealed class OverlayManager : IDisposable
     private readonly Dictionary<Guid, NameBadge> _badges = new();
     private readonly UiCoalescer _reconcile;
     private bool _gameOrAppInFront = true;
-    private nint _foregroundGameWindow;
+    private nint _foregroundCoverWindow;
     private bool _started;
     private bool _disposed;
 
@@ -67,7 +67,7 @@ public sealed class OverlayManager : IDisposable
         var foreground = _windowService.GetForegroundWindow();
         var foregroundProcessId = _windowService.GetProcessId(foreground);
         _gameOrAppInFront = IsGameOrApp(foregroundProcessId);
-        _foregroundGameWindow = IsGameProcess(foregroundProcessId) ? foreground : 0;
+        _foregroundCoverWindow = _gameOrAppInFront ? foreground : 0;
 
         _switcher.Changed += OnSourceChanged;
         _accounts.Changed += OnSourceChanged;
@@ -106,15 +106,17 @@ public sealed class OverlayManager : IDisposable
     private void OnForegroundChanged(object? sender, ForegroundChangedEventArgs e)
     {
         var inFront = IsGameOrApp(e.ProcessId);
-        var gameWindow = IsGameProcess(e.ProcessId) ? e.WindowHandle : 0;
-        Dispatcher.UIThread.Post(() => ApplyForeground(inFront, gameWindow));
+
+        // A game window or one of MultiWiz's own windows: badges under either would float over it.
+        var coverWindow = inFront ? e.WindowHandle : 0;
+        Dispatcher.UIThread.Post(() => ApplyForeground(inFront, coverWindow));
     }
 
     private bool IsGameOrApp(int processId) => processId == Environment.ProcessId || IsGameProcess(processId);
 
     private bool IsGameProcess(int processId) => processId != 0 && _sessions.FindByProcessId(processId) is not null;
 
-    private void ApplyForeground(bool inFront, nint gameWindow)
+    private void ApplyForeground(bool inFront, nint coverWindow)
     {
         if (_disposed)
         {
@@ -122,7 +124,7 @@ public sealed class OverlayManager : IDisposable
         }
 
         // Occlusion first, so a badge that is about to be covered is not shown for a moment when un-suppressed.
-        _foregroundGameWindow = gameWindow;
+        _foregroundCoverWindow = coverWindow;
         UpdateOcclusion();
 
         if (_gameOrAppInFront == inFront)
@@ -137,7 +139,7 @@ public sealed class OverlayManager : IDisposable
         }
     }
 
-    /// <summary>Hides the badges of background clients wherever the game window in front covers them.</summary>
+    /// <summary>Hides the badges (other than the front game's own) wherever the window in front covers them.</summary>
     private void UpdateOcclusion()
     {
         if (_disposed)
@@ -145,12 +147,12 @@ public sealed class OverlayManager : IDisposable
             return;
         }
 
-        var cover = _foregroundGameWindow != 0 ? _windowService.GetBounds(_foregroundGameWindow) : null;
+        var cover = _foregroundCoverWindow != 0 ? _windowService.GetBounds(_foregroundCoverWindow) : null;
         foreach (var badge in _badges.Values)
         {
             var window = badge.Window;
             var occluded = cover is { } front
-                && window.TargetWindow != _foregroundGameWindow
+                && window.TargetWindow != _foregroundCoverWindow
                 && window.OverlayBounds is { } overlay
                 && Intersects(overlay, front);
             window.SetOccluded(occluded);

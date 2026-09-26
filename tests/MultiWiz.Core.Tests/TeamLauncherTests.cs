@@ -159,6 +159,42 @@ public sealed class TeamLauncherTests
         Assert.Empty(_windows.SetBoundsCalls);
     }
 
+    [Fact]
+    public async Task Arranging_a_team_that_is_already_running_does_not_block_the_caller()
+    {
+        using var release = new ManualResetEventSlim();
+        var arranger = new BlockingArranger(release);
+        var launcher = new TeamLauncher(_teams, _sessions, _switcher, arranger, _settings, NullLogger<TeamLauncher>.Instance);
+        var a = Guid.NewGuid();
+        _sessions.Start(a);
+        var team = _teams.Add("Running", [a], BuiltInLayouts.SideBySide.Id);
+
+        // Like restoring a minimized client whose UI thread is busy: arranging waits until the game answers. The caller
+        // (the UI thread in the app) must get control back right away.
+        var launch = launcher.LaunchAsync(team.Id, TestContext.Current.CancellationToken);
+        Assert.False(launch.IsCompleted);
+
+        release.Set();
+        var sessions = await launch;
+
+        Assert.Equal(a, Assert.Single(sessions).AccountId);
+        Assert.Equal(1, arranger.Calls);
+    }
+
+    private sealed class BlockingArranger(ManualResetEventSlim release) : IWindowArranger
+    {
+        private int _calls;
+
+        public int Calls => Volatile.Read(ref _calls);
+
+        public int Arrange(IReadOnlyList<ClientSession> orderedSessions, WindowLayout layout, bool resize)
+        {
+            Interlocked.Increment(ref _calls);
+            release.Wait(TimeSpan.FromSeconds(30));
+            return orderedSessions.Count;
+        }
+    }
+
     private sealed class ThrowingArranger : IWindowArranger
     {
         public int Arrange(IReadOnlyList<ClientSession> orderedSessions, WindowLayout layout, bool resize) =>

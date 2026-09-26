@@ -22,18 +22,61 @@ internal sealed class SingleInstanceGuard : IDisposable
         _activation = activation;
     }
 
+    /// <summary>
+    /// True when another MultiWiz already runs in this session. Only a hint (the instance may be exiting); use
+    /// <see cref="TryAcquire"/> to decide who runs.
+    /// </summary>
+    public static bool IsAnotherInstanceRunning()
+    {
+        try
+        {
+            if (Mutex.TryOpenExisting(MutexName, out var existing))
+            {
+                existing.Dispose();
+                return true;
+            }
+
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return true; // Created by an elevated MultiWiz.
+        }
+    }
+
     /// <summary>Returns the guard when this is the first instance, or null when another instance already runs.</summary>
     public static SingleInstanceGuard? TryAcquire()
     {
-        var mutex = new Mutex(initiallyOwned: true, MutexName, out var createdNew);
+        Mutex mutex;
+        bool createdNew;
+        try
+        {
+            mutex = new Mutex(initiallyOwned: true, MutexName, out createdNew);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // A MultiWiz started with "Run as administrator" owns the mutex, and a normal process may not open it.
+            return null;
+        }
+
         if (!createdNew)
         {
             mutex.Dispose();
             return null;
         }
 
-        var activation = new EventWaitHandle(initialState: false, EventResetMode.AutoReset, ActivationEventName);
-        return new SingleInstanceGuard(mutex, activation);
+        try
+        {
+            var activation = new EventWaitHandle(initialState: false, EventResetMode.AutoReset, ActivationEventName);
+            return new SingleInstanceGuard(mutex, activation);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // An elevated MultiWiz that is still exiting holds the activation event.
+            mutex.ReleaseMutex();
+            mutex.Dispose();
+            return null;
+        }
     }
 
     /// <summary>Asks the running instance to show itself. Safe to call when it is shutting down.</summary>
@@ -42,12 +85,22 @@ internal sealed class SingleInstanceGuard : IDisposable
         // This process was just started by the user, so it may hand foreground rights to the running instance.
         _ = PInvoke.AllowSetForegroundWindow(PInvoke.ASFW_ANY);
 
-        if (EventWaitHandle.TryOpenExisting(ActivationEventName, out var activation))
+        try
         {
-            using (activation)
+            if (EventWaitHandle.TryOpenExisting(ActivationEventName, out var activation))
             {
-                activation.Set();
+                using (activation)
+                {
+                    activation.Set();
+                }
             }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // The running copy is elevated, and a normal process cannot signal it.
+            NativeDialog.ShowInformation(
+                "MultiWiz is already running as administrator. Open it from its tray icon, or start this shortcut " +
+                "with \"Run as administrator\" too.");
         }
     }
 

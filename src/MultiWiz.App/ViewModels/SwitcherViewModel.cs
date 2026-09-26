@@ -52,15 +52,22 @@ public sealed partial class SwitcherViewModel : ObservableObject, IDisposable
     private readonly IAccountStore _accounts;
     private readonly ITeamStore _teams;
     private readonly ISettingsStore _settings;
+    private readonly IHotkeyCoordinator _hotkeys;
     private readonly UiCoalescer _refresh;
     private readonly UiDebouncer _positionSave = new(TimeSpan.FromMilliseconds(500));
 
-    public SwitcherViewModel(IClientSwitcher switcher, IAccountStore accounts, ITeamStore teams, ISettingsStore settings)
+    public SwitcherViewModel(
+        IClientSwitcher switcher,
+        IAccountStore accounts,
+        ITeamStore teams,
+        ISettingsStore settings,
+        IHotkeyCoordinator hotkeys)
     {
         _switcher = switcher;
         _accounts = accounts;
         _teams = teams;
         _settings = settings;
+        _hotkeys = hotkeys;
         _refresh = new UiCoalescer(Refresh);
 
         Refresh();
@@ -69,6 +76,7 @@ public sealed partial class SwitcherViewModel : ObservableObject, IDisposable
         _accounts.Changed += OnSourceChanged;
         _teams.Changed += OnSourceChanged;
         _settings.Changed += OnSettingsChanged;
+        _hotkeys.RegistrationsChanged += OnSourceChanged;
     }
 
     public ObservableCollection<SwitcherEntryViewModel> Entries { get; } = [];
@@ -104,6 +112,7 @@ public sealed partial class SwitcherViewModel : ObservableObject, IDisposable
         _accounts.Changed -= OnSourceChanged;
         _teams.Changed -= OnSourceChanged;
         _settings.Changed -= OnSettingsChanged;
+        _hotkeys.RegistrationsChanged -= OnSourceChanged;
         _positionSave.Dispose();
     }
 
@@ -122,6 +131,7 @@ public sealed partial class SwitcherViewModel : ObservableObject, IDisposable
 
         var sessions = _switcher.OrderedSessions;
         var currentId = _switcher.Current?.AccountId;
+        var failedHotkeys = _hotkeys.FailedActions;
         var existing = Entries.ToDictionary(entry => entry.AccountId);
         var ordered = new List<SwitcherEntryViewModel>(sessions.Count);
         for (var i = 0; i < sessions.Count; i++)
@@ -136,7 +146,7 @@ public sealed partial class SwitcherViewModel : ObservableObject, IDisposable
             entry.Slot = i + 1;
             entry.Name = account?.DisplayName ?? "Unknown account";
             entry.AccentColor = account?.AccentColor;
-            entry.HotkeyHint = HotkeyHintFor(settings.Hotkeys, i);
+            entry.HotkeyHint = HotkeyHintFor(settings.Hotkeys, i, failedHotkeys);
             entry.IsCurrent = session.AccountId == currentId;
             ordered.Add(entry);
         }
@@ -145,14 +155,21 @@ public sealed partial class SwitcherViewModel : ObservableObject, IDisposable
         IsEmpty = Entries.Count == 0;
     }
 
-    private static string? HotkeyHintFor(HotkeySettings hotkeys, int slotIndex)
+    /// <summary>The slot's focus hotkey, or null when there is none or it could not be registered (in use elsewhere).</summary>
+    private static string? HotkeyHintFor(HotkeySettings hotkeys, int slotIndex, IReadOnlyList<HotkeyAction> failed)
     {
         if (!hotkeys.Enabled || slotIndex > 7)
         {
             return null;
         }
 
-        var text = DefaultHotkeys.Resolve(hotkeys.Bindings, HotkeyAction.FocusSlot1 + slotIndex);
+        var action = HotkeyAction.FocusSlot1 + slotIndex;
+        if (failed.Contains(action))
+        {
+            return null;
+        }
+
+        var text = DefaultHotkeys.Resolve(hotkeys.Bindings, action);
         return HotkeyBinding.TryParse(text, out var binding) && binding.IsValid ? binding.ToString() : null;
     }
 }

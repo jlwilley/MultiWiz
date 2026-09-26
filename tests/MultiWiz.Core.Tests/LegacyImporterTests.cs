@@ -179,6 +179,84 @@ public sealed class LegacyImporterTests : IDisposable
         Assert.True(File.Exists(_paths.LegacyConfigFile));
     }
 
+    [Fact]
+    public void Blobs_encrypted_on_another_pc_are_imported_without_their_login_details()
+    {
+        WriteConfig(
+            $"Moved PC,{ForeignBlob()},{ForeignBlob()}",
+            $"Also moved,{ForeignBlob()},{ForeignBlob()},Wizard101_EU",
+            $"Password only,{_protector.ProtectToBase64("mixeduser")},{ForeignBlob()}");
+
+        var preview = _importer.ReadPreview()!;
+
+        Assert.Equal(new LegacyAccount("Moved PC", string.Empty, string.Empty, GameKind.Wizard101, "w101-us", false, true), preview.Accounts[0]);
+        Assert.Equal(new LegacyAccount("Password only", "mixeduser", string.Empty, GameKind.Wizard101, "w101-us", false, true), preview.Accounts[2]);
+
+        var result = _importer.Import(preview);
+
+        Assert.Equal(new LegacyImportResult(3, 3), result);
+        var all = _accounts.GetAll();
+        Assert.Equal(new[] { "Moved PC", "Also moved", "Password only" }, all.Select(account => account.DisplayName).ToArray());
+        Assert.Equal(new[] { string.Empty, string.Empty, "mixeduser" }, all.Select(account => account.Username).ToArray());
+        Assert.Equal(0, _vault.Count);
+    }
+
+    [Fact]
+    public void An_empty_name_does_not_fall_back_to_the_login_name()
+    {
+        WriteConfig(Line("A", "a", "a"), Line(string.Empty, "secretlogin", "pw"));
+
+        var preview = _importer.ReadPreview()!;
+
+        Assert.Equal("MultiWiz 3 account 2", preview.Accounts[1].DisplayName);
+        Assert.Equal("secretlogin", preview.Accounts[1].Username);
+    }
+
+    [Fact]
+    public void A_failed_account_save_removes_the_password_it_just_stored()
+    {
+        WriteConfig(Line("Storm", "stormuser", "pw"));
+        var preview = _importer.ReadPreview()!;
+        _accounts.UpsertException = new IOException("accounts.json is locked.");
+
+        Assert.Throws<IOException>(() => _importer.Apply(preview));
+
+        Assert.Equal(0, _vault.Count);
+        Assert.False(_settings.Current.LegacyImportHandled);
+    }
+
+    [Fact]
+    public void Passwords_that_could_not_be_saved_are_reported()
+    {
+        WriteConfig(Line("Storm", "stormuser", "pw"), Line("No password", "nopass", string.Empty));
+        _vault.SaveSucceeds = false;
+
+        var result = _importer.Import(_importer.ReadPreview()!);
+
+        Assert.Equal(new LegacyImportResult(2, 1), result);
+        Assert.Equal(2, _accounts.GetAll().Count);
+    }
+
+    [Fact]
+    public void A_failure_to_save_the_settings_still_keeps_the_imported_accounts()
+    {
+        WriteConfig(Line("Storm", "stormuser", "pw"));
+        _settings.UpdateException = new IOException("settings.json is locked.");
+
+        var added = _importer.Apply(_importer.ReadPreview()!);
+
+        Assert.Equal(1, added);
+        var account = Assert.Single(_accounts.GetAll());
+        Assert.Equal("pw", _vault.GetPassword(account.Id));
+    }
+
+    // A CurrentUser DPAPI blob (version 1 + provider GUID header) that this user's keys cannot decrypt.
+    private static string ForeignBlob() => Convert.ToBase64String(
+    [
+        0x01, 0x00, 0x00, 0x00, 0xD0, 0x8C, 0x9D, 0xDF, 0x01, 0x15, 0xD1, 0x11, 0x8C, 0x7A, 0x00, 0xC0, 0x4F, 0xC2, 0x97, 0xEB,
+        .. Guid.NewGuid().ToByteArray(),
+    ]);
+
     private string Line(string name, string username, string password, string? server = null)
     {
         var line = $"{name},{_protector.ProtectToBase64(username)},{_protector.ProtectToBase64(password)}";

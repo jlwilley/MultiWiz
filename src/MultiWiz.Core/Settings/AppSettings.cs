@@ -1,5 +1,8 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using MultiWiz.Core.Games;
 using MultiWiz.Core.Hotkeys;
+using MultiWiz.Core.Storage;
 
 namespace MultiWiz.Core.Settings;
 
@@ -25,6 +28,7 @@ public sealed record AppSettings
     public IReadOnlyList<GameInstall> CustomInstalls { get; init; } = [];
 
     /// <summary>Preferred install id per game, used when an account's InstallId is null.</summary>
+    [JsonConverter(typeof(TolerantEnumKeyDictionaryConverter<GameKind>))]
     public IReadOnlyDictionary<GameKind, string> PreferredInstallIds { get; init; } = new Dictionary<GameKind, string>();
 
     public IReadOnlyList<Realm> CustomRealms { get; init; } = [];
@@ -33,16 +37,32 @@ public sealed record AppSettings
     public bool LegacyImportHandled { get; init; }
 
     public Guid? LastTeamId { get; init; }
+
+    /// <summary>
+    /// Properties this build does not know (written by a newer one), kept so a save does not drop them. Only the
+    /// serializer sets this (extension data cannot be init-only with source-generated metadata).
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
 
 public sealed record GeneralSettings
 {
+    [JsonConverter(typeof(TolerantEnumConverter<ThemePreference>))]
     public ThemePreference Theme { get; init; } = ThemePreference.Dark;
     public bool MinimizeToTray { get; init; } = true;
     public bool CloseToTray { get; init; }
     public bool CloseGamesOnExit { get; init; }
     public bool CheckForUpdates { get; init; } = true;
+    [JsonConverter(typeof(TolerantEnumConverter<UpdateChannel>))]
     public UpdateChannel UpdateChannel { get; init; } = UpdateChannel.Stable;
+
+    /// <summary>
+    /// Properties this build does not know (written by a newer one), kept so a save does not drop them. Only the
+    /// serializer sets this (extension data cannot be init-only with source-generated metadata).
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
 
 public sealed record LoginSettings
@@ -64,6 +84,13 @@ public sealed record LoginSettings
 
     /// <summary>Bring MultiWiz back to the front after a login finishes.</summary>
     public bool RefocusAfterLogin { get; init; }
+
+    /// <summary>
+    /// Properties this build does not know (written by a newer one), kept so a save does not drop them. Only the
+    /// serializer sets this (extension data cannot be init-only with source-generated metadata).
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
 
 public sealed record AudioSettings
@@ -74,6 +101,13 @@ public sealed record AudioSettings
 
     /// <summary>0 mutes background clients; anything higher ducks them.</summary>
     public int UnfocusedVolumePercent { get; init; }
+
+    /// <summary>
+    /// Properties this build does not know (written by a newer one), kept so a save does not drop them. Only the
+    /// serializer sets this (extension data cannot be init-only with source-generated metadata).
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
 
 public sealed record SwitcherSettings
@@ -87,12 +121,26 @@ public sealed record SwitcherSettings
     /// <summary>Last position in physical pixels; null = default (right edge, one third down).</summary>
     public int? Left { get; init; }
     public int? Top { get; init; }
+
+    /// <summary>
+    /// Properties this build does not know (written by a newer one), kept so a save does not drop them. Only the
+    /// serializer sets this (extension data cannot be init-only with source-generated metadata).
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
 
 public sealed record OverlaySettings
 {
     /// <summary>Show a small click-through badge with slot number and account name on each game window.</summary>
     public bool ShowNameBadges { get; init; }
+
+    /// <summary>
+    /// Properties this build does not know (written by a newer one), kept so a save does not drop them. Only the
+    /// serializer sets this (extension data cannot be init-only with source-generated metadata).
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
 
 public sealed record PerformanceSettings
@@ -102,6 +150,13 @@ public sealed record PerformanceSettings
 
     /// <summary>Run background clients at below-normal priority.</summary>
     public bool LowerBackgroundPriority { get; init; }
+
+    /// <summary>
+    /// Properties this build does not know (written by a newer one), kept so a save does not drop them. Only the
+    /// serializer sets this (extension data cannot be init-only with source-generated metadata).
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }
 
 public sealed record HotkeySettings
@@ -109,8 +164,16 @@ public sealed record HotkeySettings
     public bool Enabled { get; init; } = true;
 
     /// <summary>
-    /// Bindings as text (e.g. "Alt+1", "Ctrl+Alt+S"); an empty string means unbound.
+    /// Bindings as text (e.g. "Alt+1", "Ctrl+Alt+F9"); an empty string means unbound.
     /// Actions missing from the map use <see cref="DefaultHotkeys"/>.
     /// </summary>
+    [JsonConverter(typeof(TolerantEnumKeyDictionaryConverter<HotkeyAction>))]
     public IReadOnlyDictionary<HotkeyAction, string> Bindings { get; init; } = new Dictionary<HotkeyAction, string>();
+
+    /// <summary>
+    /// Properties this build does not know (written by a newer one), kept so a save does not drop them. Only the
+    /// serializer sets this (extension data cannot be init-only with source-generated metadata).
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }

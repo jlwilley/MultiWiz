@@ -60,7 +60,13 @@ public sealed partial class TrayViewModel : ObservableObject, IDisposable
     private void StopAll() => _actions.StopAll();
 
     [RelayCommand]
-    private void Quit() => _windows.Quit();
+    private async Task QuitAsync()
+    {
+        if (await _actions.ConfirmExitAsync("Quit MultiWiz"))
+        {
+            _windows.Quit();
+        }
+    }
 
     private void OnTeamsChanged(object? sender, EventArgs e) => _teamsRefresh.Request();
 

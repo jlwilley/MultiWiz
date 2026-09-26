@@ -6,6 +6,7 @@ using MultiWiz.Core.Hotkeys;
 using MultiWiz.Core.Platform;
 using MultiWiz.Core.Security;
 using MultiWiz.Core.Settings;
+using MultiWiz.Core.Storage;
 
 namespace MultiWiz.Core.Sessions;
 
@@ -15,12 +16,20 @@ namespace MultiWiz.Core.Sessions;
 /// after its final snapshot is published, and a failed session never leaves its client running.
 /// Client processes are started at least <see cref="LoginSettings.StaggerSeconds"/> apart, whichever launch call
 /// they come from, and Steam is prepared for one launch at a time.
+/// Started clients are recorded in <see cref="AppPaths.RunningClientsFile"/> until they exit, and a new manager
+/// (after MultiWiz quit, restarted for an update, or crashed) adopts the ones that are still running, so they keep
+/// being managed and launching the account again does not start a second client.
 /// </summary>
 public sealed class SessionManager : ISessionManager, ISessionEvents
 {
     private static readonly TimeSpan WindowPollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan FieldDelay = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan SteamReadyTimeout = TimeSpan.FromMinutes(3);
+
+    // How far a process's start time may be from the recorded one and still count as the same process. The record is
+    // written right after the start (with MultiWiz's clock when the platform does not report the start time), while a
+    // reused process id belongs to a process started after the recorded one exited.
+    private static readonly TimeSpan ProcessIdentityTolerance = TimeSpan.FromSeconds(30);
 
     private readonly IAccountStore _accounts;
     private readonly IRealmCatalog _realms;
@@ -35,6 +44,7 @@ public sealed class SessionManager : ISessionManager, ISessionEvents
     private readonly IProcessThrottler _throttler;
     private readonly TimeProvider _time;
     private readonly ILogger<SessionManager> _logger;
+    private readonly string _runningClientsFile;
 
     private readonly Lock _lock = new();
     private readonly Dictionary<Guid, SessionEntry> _entries = new();
@@ -56,6 +66,11 @@ public sealed class SessionManager : ISessionManager, ISessionEvents
 
     private long _sequence;
 
+    // The clients recorded in _runningClientsFile, by account. Guarded by _runningClientsLock, which is never held
+    // together with _lock.
+    private readonly Lock _runningClientsLock = new();
+    private readonly Dictionary<Guid, RunningClient> _runningClients = new();
+
     public SessionManager(
         IAccountStore accounts,
         IRealmCatalog realms,
@@ -68,6 +83,7 @@ public sealed class SessionManager : ISessionManager, ISessionEvents
         ICredentialVault vault,
         IAudioService audio,
         IProcessThrottler throttler,
+        AppPaths paths,
         TimeProvider timeProvider,
         ILogger<SessionManager> logger)
     {
@@ -84,6 +100,9 @@ public sealed class SessionManager : ISessionManager, ISessionEvents
         _throttler = throttler;
         _time = timeProvider;
         _logger = logger;
+        _runningClientsFile = paths.RunningClientsFile;
+
+        AdoptRunningClients();
     }
 
     public event EventHandler<ClientSession>? SessionChanged;
@@ -264,6 +283,9 @@ public sealed class SessionManager : ISessionManager, ISessionEvents
 
         var processId = process.Id;
         var stopRequested = AttachProcess(entry, process, processId);
+
+        // Recorded before the exit watcher starts, so the watcher's removal always comes after it.
+        RememberRunningClient(entry.AccountId, process, processId);
         _ = WatchForExitAsync(entry, process, processId);
         if (stopRequested)
         {
@@ -450,6 +472,7 @@ public sealed class SessionManager : ISessionManager, ISessionEvents
         }
 
         _logger.LogInformation("Process {ProcessId} of account {AccountId} exited", processId, entry.AccountId);
+        ForgetRunningClient(entry.AccountId, processId);
         ReleaseProcessResources(processId);
         if (updated is not null)
         {
@@ -462,6 +485,210 @@ public sealed class SessionManager : ISessionManager, ISessionEvents
 
         // Ends a launch that is still waiting for the window or the login.
         Cancel(flow);
+    }
+
+    /// <summary>
+    /// Adopts the clients recorded by an earlier MultiWiz run that are still running: each becomes a Running session
+    /// watched like a launched one. Records whose process is gone, or whose id now belongs to another process, are
+    /// dropped. Never throws: a client that cannot be adopted simply stays unmanaged, as before.
+    /// </summary>
+    private void AdoptRunningClients()
+    {
+        RunningClientsDocument? document;
+        try
+        {
+            document = JsonFileStore.Load(_runningClientsFile, CoreJsonContext.Default.RunningClientsDocument, _logger, _time);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Reading the clients that were running before MultiWiz restarted failed");
+            return;
+        }
+
+        var records = document?.Clients;
+        if (records is null || records.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var record in records)
+        {
+            if (record is null)
+            {
+                continue;
+            }
+
+            try
+            {
+                TryAdopt(record);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Re-attaching to process {ProcessId} of account {AccountId} failed", record.ProcessId, record.AccountId);
+            }
+        }
+
+        // Keep only the adopted clients.
+        lock (_runningClientsLock)
+        {
+            SaveRunningClientsLocked();
+        }
+    }
+
+    private void TryAdopt(RunningClient record)
+    {
+        var account = _accounts.Find(record.AccountId);
+        if (account is null || record.ProcessId <= 0)
+        {
+            return;
+        }
+
+        var process = _launcher.TryAttach(record.ProcessId);
+        if (process is null)
+        {
+            return;
+        }
+
+        if (!IsSameClient(process, record, account.Game))
+        {
+            _logger.LogInformation(
+                "Process {ProcessId} is no longer the client of account {AccountId}; it is left alone", record.ProcessId, record.AccountId);
+            process.Dispose();
+            return;
+        }
+
+        var window = _windows.FindMainWindow(record.ProcessId);
+        SessionEntry? entry = null;
+        ClientSession? snapshot = null;
+        lock (_lock)
+        {
+            if (!_entries.ContainsKey(record.AccountId))
+            {
+                snapshot = new ClientSession
+                {
+                    AccountId = record.AccountId,
+                    State = ClientSessionState.Running,
+                    StartedAt = record.StartedAt,
+                    ProcessId = record.ProcessId,
+                    WindowHandle = window,
+                };
+                entry = new SessionEntry(record.AccountId, ++_sequence, snapshot) { Process = process };
+                _entries.Add(record.AccountId, entry);
+            }
+        }
+
+        if (entry is null || snapshot is null)
+        {
+            // A second record for the same account.
+            process.Dispose();
+            return;
+        }
+
+        lock (_runningClientsLock)
+        {
+            _runningClients[record.AccountId] = record;
+        }
+
+        _logger.LogInformation(
+            "Picked up the client of account {AccountId} (process {ProcessId}) that was started before MultiWiz restarted",
+            record.AccountId, record.ProcessId);
+        PublishIfLatest(entry, snapshot);
+        _ = WatchForExitAsync(entry, process, record.ProcessId);
+        if (window == 0)
+        {
+            _ = FindAdoptedWindowAsync(entry, record.ProcessId);
+        }
+    }
+
+    private static bool IsSameClient(ILaunchedProcess process, RunningClient record, GameKind game)
+    {
+        try
+        {
+            return !process.HasExited
+                && process.StartTime is { } startTime
+                && (startTime - record.StartedAt).Duration() <= ProcessIdentityTolerance
+                && string.Equals(process.ProcessName, GameExecutables.ClientProcessName(game), StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception)
+        {
+            // The process exited or cannot be inspected.
+            return false;
+        }
+    }
+
+    // An adopted client that has no window yet (still loading) gets it filled in once it appears.
+    private async Task FindAdoptedWindowAsync(SessionEntry entry, int processId)
+    {
+        using var flow = new CancellationTokenSource();
+        SetFlow(entry, flow);
+        try
+        {
+            var timeout = TimeSpan.FromSeconds(Math.Max(1, _settings.Current.Login.WindowTimeoutSeconds));
+            var window = await WaitForWindowAsync(processId, timeout, flow.Token).ConfigureAwait(false);
+            if (window != 0)
+            {
+                Transition(entry, session => session with { WindowHandle = window });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The client exited or was stopped.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Looking for the window of process {ProcessId} failed", processId);
+        }
+        finally
+        {
+            SetFlow(entry, null);
+        }
+    }
+
+    private void RememberRunningClient(Guid accountId, ILaunchedProcess process, int processId)
+    {
+        DateTimeOffset startedAt;
+        try
+        {
+            startedAt = process.StartTime ?? _time.GetUtcNow();
+        }
+        catch (Exception)
+        {
+            startedAt = _time.GetUtcNow();
+        }
+
+        lock (_runningClientsLock)
+        {
+            _runningClients[accountId] = new RunningClient { AccountId = accountId, ProcessId = processId, StartedAt = startedAt };
+            SaveRunningClientsLocked();
+        }
+    }
+
+    private void ForgetRunningClient(Guid accountId, int processId)
+    {
+        lock (_runningClientsLock)
+        {
+            if (_runningClients.TryGetValue(accountId, out var record) && record.ProcessId == processId)
+            {
+                _runningClients.Remove(accountId);
+                SaveRunningClientsLocked();
+            }
+        }
+    }
+
+    private void SaveRunningClientsLocked()
+    {
+        try
+        {
+            JsonFileStore.Save(
+                _runningClientsFile,
+                new RunningClientsDocument { Clients = _runningClients.Values.ToList() },
+                CoreJsonContext.Default.RunningClientsDocument);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Only costs picking the clients up again after a restart.
+            _logger.LogWarning(ex, "Saving the list of running clients failed");
+        }
     }
 
     private bool TryBeginLaunch(Guid accountId, [NotNullWhen(true)] out SessionEntry? entry, out ClientSession snapshot)

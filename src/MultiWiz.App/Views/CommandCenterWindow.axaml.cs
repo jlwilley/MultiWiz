@@ -7,6 +7,7 @@ using MultiWiz.App.Services;
 using MultiWiz.App.ViewModels;
 using MultiWiz.Core.Platform;
 using CorePixelRect = MultiWiz.Core.Primitives.PixelRect;
+using CorePixelSize = MultiWiz.Core.Primitives.PixelSize;
 
 namespace MultiWiz.App.Views;
 
@@ -21,8 +22,12 @@ public partial class CommandCenterWindow : Window
 
     private readonly Dictionary<nint, ThumbnailEntry> _thumbnails = new();
     private readonly HashSet<nint> _failedSources = [];
+
+    // A game window can change size without anything here moving (an arrange with resizing, a manual resize, a client
+    // that was minimized when its tile appeared), so re-check the previews' aspect ratio while the window is shown.
+    private readonly DispatcherTimer _sourceSizeCheck = new() { Interval = TimeSpan.FromSeconds(1) };
     private IThumbnailService? _thumbnailService;
-    private WindowPlacementStore? _placements;
+    private WindowPlacementTracker? _placement;
     private ILogger? _logger;
     private bool _wasShown;
 
@@ -31,26 +36,15 @@ public partial class CommandCenterWindow : Window
         InitializeComponent();
         LayoutUpdated += (_, _) => SyncThumbnails();
         ScalingChanged += (_, _) => SyncThumbnails();
+        _sourceSizeCheck.Tick += (_, _) => SyncThumbnails();
     }
 
     public void Attach(IThumbnailService thumbnailService, WindowPlacementStore placements, ILogger logger)
     {
         _thumbnailService = thumbnailService;
-        _placements = placements;
         _logger = logger;
-
-        if (placements.Get(PlacementKey) is { } placement
-            && Screens.ScreenFromPoint(new PixelPoint(placement.X + 48, placement.Y + 16)) is not null)
-        {
-            WindowStartupLocation = WindowStartupLocation.Manual;
-            Position = new PixelPoint(placement.X, placement.Y);
-            Width = Math.Max(MinWidth, placement.Width);
-            Height = Math.Max(MinHeight, placement.Height);
-            if (placement.IsMaximized)
-            {
-                WindowState = WindowState.Maximized;
-            }
-        }
+        _placement = new WindowPlacementTracker(this, placements, PlacementKey);
+        _placement.Restore();
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -71,12 +65,14 @@ public partial class CommandCenterWindow : Window
         if (IsVisible)
         {
             _wasShown = true;
+            _sourceSizeCheck.Start();
 
             // Layout may already be settled when the window is shown again, so sync once after it is rendered.
             Dispatcher.UIThread.Post(SyncThumbnails, DispatcherPriority.Background);
         }
         else
         {
+            _sourceSizeCheck.Stop();
             SavePlacement();
             ReleaseThumbnails();
         }
@@ -96,6 +92,7 @@ public partial class CommandCenterWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _sourceSizeCheck.Stop();
         ReleaseThumbnails();
         base.OnClosed(e);
     }
@@ -144,10 +141,13 @@ public partial class CommandCenterWindow : Window
                 _thumbnails[tile.WindowHandle] = entry;
             }
 
-            if (entry.LastDestination != destination)
+            // The letterbox inside the destination follows the game's current client size.
+            var sourceSize = entry.Thumbnail.SourceSize;
+            if (entry.LastDestination != destination || entry.LastSourceSize != sourceSize)
             {
                 entry.Thumbnail.Update(destination, visible: !destination.IsEmpty);
                 entry.LastDestination = destination;
+                entry.LastSourceSize = sourceSize;
             }
 
             shown.Add(tile.WindowHandle);
@@ -173,23 +173,10 @@ public partial class CommandCenterWindow : Window
 
     private void SavePlacement()
     {
-        if (_placements is null || !_wasShown || WindowState == WindowState.Minimized)
+        if (_wasShown)
         {
-            return;
+            _placement?.Save();
         }
-
-        if (WindowState == WindowState.Maximized)
-        {
-            var previous = _placements.Get(PlacementKey);
-            _placements.Set(PlacementKey, previous is null
-                ? new WindowPlacement(Position.X, Position.Y, Width, Height, IsMaximized: true)
-                : previous with { IsMaximized = true });
-            return;
-        }
-
-        _placements.Set(
-            PlacementKey,
-            new WindowPlacement(Position.X, Position.Y, ClientSize.Width, ClientSize.Height, IsMaximized: false));
     }
 
     private sealed class ThumbnailEntry(IWindowThumbnail thumbnail)
@@ -197,5 +184,7 @@ public partial class CommandCenterWindow : Window
         public IWindowThumbnail Thumbnail { get; } = thumbnail;
 
         public CorePixelRect? LastDestination { get; set; }
+
+        public CorePixelSize LastSourceSize { get; set; }
     }
 }

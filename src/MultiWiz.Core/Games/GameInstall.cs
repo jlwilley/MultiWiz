@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MultiWiz.Core.Storage;
 
 namespace MultiWiz.Core.Games;
 
@@ -10,7 +11,11 @@ public sealed record GameInstall
     /// "steam-wizard101-&lt;hash of root&gt;"); custom installs use "custom-&lt;guid&gt;".
     /// </summary>
     public required string Id { get; init; }
+    /// <summary>A game or source this build does not know (from a newer build's settings) reads as an undefined value.</summary>
+    [JsonConverter(typeof(TolerantEnumConverter<GameKind>))]
     public required GameKind Game { get; init; }
+
+    [JsonConverter(typeof(TolerantEnumConverter<InstallSource>))]
     public required InstallSource Source { get; init; }
 
     /// <summary>Game root folder, e.g. C:\ProgramData\KingsIsle Entertainment\Wizard101. The client lives in Bin\.</summary>

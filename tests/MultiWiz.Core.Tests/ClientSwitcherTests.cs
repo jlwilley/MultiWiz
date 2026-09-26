@@ -202,6 +202,32 @@ public sealed class ClientSwitcherTests : IDisposable
     }
 
     [Fact]
+    public void A_client_focused_before_its_window_is_recorded_stays_current_when_other_clients_change()
+    {
+        _sessions.Start(_alpha.Id);
+        var bravo = _sessions.Start(_bravo.Id, withWindow: false);
+        var bravoWindow = FakeWindowService.WindowFor(bravo.ProcessId);
+
+        // Bravo's window takes the foreground before the session manager has recorded it.
+        _windowEvents.RaiseForeground(bravoWindow, bravo.ProcessId);
+        Assert.Null(_switcher.Current);
+
+        // Another client changes state in the meantime, which rebuilds the order.
+        _sessions.Start(_charlie.Id);
+        SettleEffects();
+
+        // Bravo's window is recorded: it becomes the current client and gets the focused volume.
+        _sessions.Set(bravo with { WindowHandle = bravoWindow });
+        Assert.Equal(_bravo.Id, _switcher.Current?.AccountId);
+
+        _time.Advance(PastDebounce);
+        var targets = _audio.Applied.Last();
+        Assert.Equal(90, VolumeOf(targets, _bravo));
+        Assert.Equal(10, VolumeOf(targets, _alpha));
+        Assert.Equal(10, VolumeOf(targets, _charlie));
+    }
+
+    [Fact]
     public void Focus_changes_apply_audio_after_the_debounce()
     {
         StartAll();

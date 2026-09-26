@@ -37,6 +37,12 @@ public sealed class TeamLauncher : ITeamLauncher
     /// </summary>
     public async Task<IReadOnlyList<ClientSession>> LaunchAsync(Guid teamId, CancellationToken cancellationToken = default)
     {
+        // Callers start this from the UI thread. Without this yield, a team whose clients are all running would be
+        // arranged there synchronously, and restoring a minimized or maximized window waits for that game's UI thread,
+        // so a busy client would freeze MultiWiz. The start of each launch (install lookup, Steam, Process.Start) and
+        // the settings writes below also stay off the UI thread this way.
+        await Task.CompletedTask.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);
+
         var team = _teams.Find(teamId);
         if (team is null)
         {

@@ -136,7 +136,6 @@ public sealed partial class TeamEditorViewModel : ObservableObject
 
     private void RefreshAccounts(bool notify)
     {
-        var removed = false;
         for (var i = Slots.Count - 1; i >= 0; i--)
         {
             var slot = Slots[i];
@@ -144,7 +143,6 @@ public sealed partial class TeamEditorViewModel : ObservableObject
             if (account is null)
             {
                 Slots.RemoveAt(i);
-                removed = true;
                 continue;
             }
 
@@ -155,7 +153,10 @@ public sealed partial class TeamEditorViewModel : ObservableObject
 
         RenumberSlots();
         RebuildAvailableAccounts();
-        if (notify || removed)
+
+        // Dropping slots of unknown accounts is display only: it must not by itself save the team (the page keeps
+        // unknown members when it saves).
+        if (notify)
         {
             NotifyChanged();
         }

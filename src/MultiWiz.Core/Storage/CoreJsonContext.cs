@@ -18,6 +18,7 @@ namespace MultiWiz.Core.Storage;
 [JsonSerializable(typeof(AppSettings))]
 [JsonSerializable(typeof(AccountsDocument))]
 [JsonSerializable(typeof(TeamsDocument))]
+[JsonSerializable(typeof(RunningClientsDocument))]
 public sealed partial class CoreJsonContext : JsonSerializerContext
 {
 }
