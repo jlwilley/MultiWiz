@@ -482,13 +482,15 @@ public sealed class JsonSettingsStoreTests : IDisposable
     }
 
     [Theory]
-    [InlineData(4, 8)]
-    [InlineData(12, 12)]
-    public void Schema_1_settings_move_off_the_old_login_delay_default_but_keep_custom_values(int stored, int expected)
+    [InlineData(2, 8, 4)]
+    [InlineData(2, 12, 12)]
+    [InlineData(1, 4, 4)]
+    [InlineData(1, 8, 8)]
+    public void Older_settings_return_to_the_4_second_login_delay_but_keep_custom_values(int schema, int stored, int expected)
     {
         Directory.CreateDirectory(_paths.DataDirectory);
         File.WriteAllText(_paths.SettingsFile, $$"""
-            { "schemaVersion": 1, "login": { "readyDelaySeconds": {{stored}} } }
+            { "schemaVersion": {{schema}}, "login": { "readyDelaySeconds": {{stored}} } }
             """);
 
         var settings = CreateStore().Current;

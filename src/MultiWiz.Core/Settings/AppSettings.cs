@@ -13,7 +13,7 @@ public enum UpdateChannel { Stable = 0, Beta = 1 }
 /// <summary>All user preferences. Immutable; change via <see cref="ISettingsStore.Update"/>.</summary>
 public sealed record AppSettings
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public GeneralSettings General { get; init; } = new();
@@ -77,7 +77,7 @@ public sealed record LoginSettings
     public bool AutoLogin { get; init; } = true;
 
     /// <summary>Seconds to wait after the game window appears before typing (the login screen loads after the window).</summary>
-    public int ReadyDelaySeconds { get; init; } = 8;
+    public int ReadyDelaySeconds { get; init; } = 4;
 
     /// <summary>Give up if no client window appears within this many seconds.</summary>
     public int WindowTimeoutSeconds { get; init; } = 90;

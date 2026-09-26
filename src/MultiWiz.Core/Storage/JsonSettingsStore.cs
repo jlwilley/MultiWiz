@@ -108,15 +108,16 @@ public sealed class JsonSettingsStore : ISettingsStore
     /// <summary>Upgrades settings written by older builds.</summary>
     private static AppSettings Migrate(AppSettings settings)
     {
-        if (settings.SchemaVersion < 2)
+        if (settings.SchemaVersion < 3)
         {
-            // Schema 1 (the first v4 previews) typed the login 4 s after the window appeared, which is before the login
-            // screen is ready on most PCs. Move people still on that default to the new one; keep deliberate choices.
+            // Schema 2 raised the login delay default from 4 s to 8 s while the login was being typed into the wrong
+            // window. With that fixed, 4 s is enough again, so the automatic 8 s goes back to 4 s. Deliberate values stay.
             var login = settings.Login ?? new LoginSettings();
+            var automatic = settings.SchemaVersion == 2 && login.ReadyDelaySeconds == 8;
             settings = settings with
             {
-                SchemaVersion = 2,
-                Login = login.ReadyDelaySeconds == 4 ? login with { ReadyDelaySeconds = new LoginSettings().ReadyDelaySeconds } : login,
+                SchemaVersion = 3,
+                Login = automatic ? login with { ReadyDelaySeconds = new LoginSettings().ReadyDelaySeconds } : login,
             };
         }
 
